@@ -1,34 +1,24 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-DATABASE_URL = "postgresql://postgres:1234@localhost:5433/barberdb"
 
 TZ = ZoneInfo("Asia/Tashkent")
 
-# pool: asyncpg.Pool = None
-
-
-# =====================
-# CONNECT
-# =====================
-import asyncpg
-
-import asyncpg
 from data.config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 
 pool = None
 
-# async def connect_db():
-#     global pool
-#     pool = await asyncpg.create_pool(
-#         host=DB_HOST,
-#         port=DB_PORT,
-#         database=DB_NAME,
-#         user=DB_USER,
-#         password=DB_PASSWORD,
-#         min_size=1,
-#         max_size=10
-#     )
+async def connect_db():
+    global pool
+    pool = await asyncpg.create_pool(
+        host=DB_HOST,
+        port=DB_PORT,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        min_size=1,
+        max_size=10
+    )
 
 async def close_db():
     global pool
@@ -38,41 +28,12 @@ async def close_db():
 
 
 
-async def connect_db():
-    global pool
-    pool = await asyncpg.create_pool(
-        DATABASE_URL
-        # "postgresql://postgres:1234@localhost:5432/barbersaas"
-    )
-
 
 # =====================
 # INIT TABLES
 # =====================
 async def init_db():
     async with pool.acquire() as conn:
-        # await conn.execute("""
-        #        ALTER TABLE users
-        #         ALTER COLUMN telegram_id TYPE BIGINT;
-        #        """)
-        # await conn.execute("""
-        #
-        #         ALTER TABLE users
-        #         ALTER COLUMN id TYPE BIGINT;
-        #                """)
-        # await conn.execute("""
-        #
-        #         ALTER TABLE staff
-        #         ALTER COLUMN telegram_id TYPE BIGINT;
-        #                """)
-        # await conn.execute("""
-        #         ALTER TABLE companies
-        #         ALTER COLUMN telegram_id TYPE BIGINT;
-        #                """)
-
-        # await conn.execute("""
-        #        ALTER TABLE staff ADD COLUMN telegram_id INT
-        #        """)
 
         # =========================
         # Users / Foydalanuvchilar
@@ -118,7 +79,8 @@ async def init_db():
             work_end TIME DEFAULT '21:00',
             tomorrow_closed BOOLEAN DEFAULT FALSE,
             active BOOLEAN DEFAULT TRUE,
-            subscription_until TIMESTAMPTZ
+            subscription_until TIMESTAMPTZ,
+            telegram_id TYPE BIGINT
         )
         """)
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_companies_service_id ON companies(service_id);")
@@ -138,7 +100,8 @@ async def init_db():
             work_start TIME DEFAULT '09:00',
             work_end TIME DEFAULT '21:00',
             tomorrow_closed BOOLEAN DEFAULT FALSE,
-            subscription_until TIMESTAMPTZ
+            subscription_until TIMESTAMPTZ,
+            telegram_id TYPE BIGINT
             
         )
         """)
@@ -175,10 +138,7 @@ async def init_db():
             UNIQUE(staff_id, slot_time)
         )
         """)
-#         await conn.execute("""
-# ALTER TABLE bookings
-# DROP CONSTRAINT IF EXISTS bookings_staff_id_slot_time_key;
-#         """)
+
         await conn.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS unique_active_slot
         ON bookings(staff_id, slot_time)
@@ -214,61 +174,4 @@ async def update_subscription(new_date, company_id=None, staff_id=None):
                 SET subscription_until=$1 
                 WHERE id=$2
             """, new_date, staff_id)
-async def get_barber_by_username(username: str):
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            "SELECT * FROM barbers WHERE username=$1",
-            username
-        )
-        return dict(row) if row else None
 
-
-async def get_barber_by_telegram_id(tg_id: int):
-    async with pool.acquire() as conn:
-        return await conn.fetchrow(
-            "SELECT * FROM barbers WHERE telegram_id=$1",
-            tg_id
-        )
-
-
-# =====================
-# BOOKING
-# =====================
-async def create_booking(barber_id, user_id, slot_time, name, phone, extra_phone):
-    async with pool.acquire() as conn:
-
-        # slot bandligini tekshirish
-        exists = await conn.fetchval("""
-            SELECT COUNT(*) FROM bookings
-            WHERE barber_id=$1 AND slot_time=$2
-        """, barber_id, slot_time)
-
-        if exists >= 1:
-            return False
-
-        # user 2 tadan ortiq qilmasligi
-        today = slot_time.date()
-        user_count = await conn.fetchval("""
-            SELECT COUNT(*) FROM bookings
-            WHERE user_id=$1 AND barber_id=$2
-            AND DATE(slot_time)=$3
-        """, user_id, barber_id, today)
-
-        if user_count >= 2:
-            return False
-
-        await conn.execute("""
-            INSERT INTO bookings
-            (barber_id, user_id, slot_time, created_at, name, phone, extra_phone)
-            VALUES ($1,$2,$3,$4,$5,$6,$7)
-        """,
-                           barber_id,
-                           user_id,
-                           slot_time,
-                           datetime.now(TZ),
-                           name,
-                           phone,
-                           extra_phone
-                           )
-
-        return True
