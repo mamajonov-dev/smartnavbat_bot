@@ -852,7 +852,7 @@ async def get_all_bookings(message: Message):
                         s.name AS staff_name
                     FROM bookings b
                     LEFT JOIN staff s ON b.staff_id = s.id
-                    ORDER BY b.slot_time DESC
+                    ORDER BY b.created_at ASC
                     LIMIT $1
                 """, limit)
 
