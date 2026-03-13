@@ -19,7 +19,7 @@ from keyboards.default.asosiymenu import *
 async def barber_panel_menu(message: Message):
     staff = await get_staff_by_telegram_id(message.from_user.id)
     if not staff:
-        return await message.answer("Siz barber emassiz.")
+        return await message.answer("Siz admin emassiz.")
 
     else:
         if staff['company_id']:
@@ -397,7 +397,7 @@ async def getlocation(message: Message, state: FSMContext):
             """)
 
         if not barbers:
-            await message.answer("❌ Sizga yaqin barber topilmadi.", reply_markup=search_barber_button())
+            await message.answer("❌ Sizga yaqin xizmat ko'rsatuvchi topilmadi.", reply_markup=search_barber_button())
             return
 
         # Masofa hisoblash
@@ -412,7 +412,7 @@ async def getlocation(message: Message, state: FSMContext):
 
         kb = InlineKeyboardMarkup(row_width=1)
 
-        text = "💈 Eng yaqin barberlar:\n\n"
+        text = "💈 Eng yaqin xizmatlar:\n\n"
         for b, d in nearest:
             km = round(d / 1000, 2)
             text += f"• {b['name']} — {km} km\n"

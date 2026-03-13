@@ -396,7 +396,7 @@ async def booking_extra_phone(message: types.Message, state: FSMContext):
             if not data:
                 await state.finish()
                 return await message.answer(
-                    "Avval barber link orqali kiring.",
+                    "Avval link orqali kiring.",
                     reply_markup=markup
                 )
             success = await create_booking(
