@@ -823,3 +823,64 @@ async def get_location_edit(message: types.Message, state: FSMContext):
                 """, latitude, longitude, telegram_id)
         await state.finish()
         await message.answer('Malumot yangilandi', reply_markup=markup)
+
+
+@dp.message_handler(commands='bookings')
+async def get_all_bookings(message: Message):
+    if message.from_user.id not in MANAGER_IDS:
+        markup = await main_menu_button()
+        return await message.answer("Siz menejer emassiz.", reply_markup=markup)
+    else:
+        args = message.get_args()
+        limit = 20
+
+        if args.isdigit():
+            limit = min(int(args), 200)
+
+        async with db.pool.acquire() as conn:
+            bookings = await conn.fetch("""
+                    SELECT 
+                        b.id,
+                        b.name,
+                        b.extra_phone,
+                        b.user_id,
+                        b.phone,
+                        b.slot_time,
+                        b.created_at,
+                        b.status,
+                        b.source,
+                        s.name AS staff_name
+                    FROM bookings b
+                    LEFT JOIN staff s ON b.staff_id = s.id
+                    ORDER BY b.slot_time DESC
+                    LIMIT $1
+                """, limit)
+
+        if not bookings:
+            return await message.answer("📭 Yozilishlar topilmadi")
+
+        text = "📋 Bookinglar:\n\n"
+
+        for b in bookings:
+            item = (
+                f"🆔 ID: {b['id']}\n"
+                f"👤 Name: {b['name']}\n"
+                f"📱 Username: {b['extra_phone']}\n"
+                f"🆔 Telegram ID: {b['user_id']}\n"
+                f"📞 Telefon: {b['phone']}\n"
+                f"🕒 Slot: {b['slot_time']}\n"
+                f"✂️ Staff: {b['staff_name']}\n"
+                f"📅 Yaratilgan: {b['created_at']}\n"
+                f"📊 Status: {b['status']}\n"
+                f"📍 Source: {b['source']}\n"
+                f"────────────\n"
+            )
+
+            if len(text) + len(item) > 3500:
+                await message.answer(text)
+                text = ""
+
+            text += item
+
+        if text:
+            await message.answer(text)

@@ -139,7 +139,9 @@ async def help_command(message: types.Message):
 
         ✏️ /edit_company  
         Tashkilot ma'lumotlarini o‘zgartirish
-
+        
+        /bookings 20
+        Bookinlarni ko'rish
         ━━━━━━━━━━━━━━
 
         📌 <b>Kerakli ma'lumotlar</b>
