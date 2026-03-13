@@ -904,7 +904,6 @@ async def get_users(message:Message):
                     f"🆔 ID: {b['id']}\n"
                     f"👤 Name: {b['name']}\n"
                     f"📱 Username: @{b['username']}\n"
-                    f"🆔 Telegram ID: {b['user_id']}\n"
                     f"📊 NO show: {b['no_show_count']} ta\n"
                     f"────────────\n"
                 )
