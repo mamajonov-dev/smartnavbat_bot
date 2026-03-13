@@ -467,7 +467,7 @@ async def add_subscription(message: types.Message):
     else:
         staffs = await get_all_staffs_function()
         print(staffs)
-        text = f'Stafflar \n\n'
+        text = f'Stafflar: {len(staffs)} ta\n\n'
         for staff in staffs:
             subscription_until = staff['subscription_until']
             now = datetime.now(db.TZ)
@@ -498,7 +498,7 @@ async def add_subscription(message: types.Message):
     else:
         companies = await get_all_company_function()
 
-        text = f'Stafflar \n\n'
+        text = f'Tashkilotlar: {len(companies)} ta\n\n'
         for company in companies:
             subscription_until = company['subscription_until']
             now = datetime.now(db.TZ)
