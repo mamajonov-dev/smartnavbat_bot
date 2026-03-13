@@ -20,10 +20,10 @@ async def start_handler(message: types.Message, state: FSMContext):
     # 🔹 USER DB ga yozib qo‘yish (agar kerak bo‘lsa)
     async with db.pool.acquire() as conn:
         await conn.execute("""
-            INSERT INTO users(id, name)
-            VALUES($1,$2)
+            INSERT INTO users(id, name, username)
+            VALUES($1,$2, $3)
             ON CONFLICT (id) DO NOTHING
-        """, message.from_user.id, message.from_user.full_name)
+        """, message.from_user.id, message.from_user.full_name, message.from_user.username)
 
     # =====================================
     # 1️⃣ LINK ORQALI KIRGAN BO‘LSA

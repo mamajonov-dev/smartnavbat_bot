@@ -865,7 +865,7 @@ async def get_all_bookings(message: Message):
             item = (
                 f"🆔 ID: {b['id']}\n"
                 f"👤 Name: {b['name']}\n"
-                f"📱 Username: {b['extra_phone']}\n"
+                f"📱 Username: @{b['extra_phone']}\n"
                 f"🆔 Telegram ID: {b['user_id']}\n"
                 f"📞 Telefon: {b['phone']}\n"
                 f"🕒 Slot: {b['slot_time']}\n"
@@ -884,3 +884,36 @@ async def get_all_bookings(message: Message):
 
         if text:
             await message.answer(text)
+
+@dp.message_handler(commands='users')
+async def get_users(message:Message):
+    if message.from_user.id not in MANAGER_IDS:
+        markup = await main_menu_button()
+        return await message.answer("Siz menejer emassiz.", reply_markup=markup)
+    else:
+        async with db.pool.acquire() as conn:
+            users = await conn.fetch("""
+                SELECT id, name, username, no_show_count
+                FROM users
+                ORDER BY no_show_count DESC
+            """)
+            text = f"📋 Userlar: {len(users)} ta\n\n"
+
+            for b in users:
+                item = (
+                    f"🆔 ID: {b['id']}\n"
+                    f"👤 Name: {b['name']}\n"
+                    f"📱 Username: @{b['username']}\n"
+                    f"🆔 Telegram ID: {b['user_id']}\n"
+                    f"📊 NO show: {b['no_show_count']} ta\n"
+                    f"────────────\n"
+                )
+
+                if len(text) + len(item) > 3500:
+                    await message.answer(text)
+                    text = ""
+
+                text += item
+
+            if text:
+                await message.answer(text)

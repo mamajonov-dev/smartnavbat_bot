@@ -142,6 +142,10 @@ async def help_command(message: types.Message):
         
         /bookings 20
         Bookinlarni ko'rish
+        
+        /users 
+        Userlarni ko'rish
+        
         ━━━━━━━━━━━━━━
 
         📌 <b>Kerakli ma'lumotlar</b>

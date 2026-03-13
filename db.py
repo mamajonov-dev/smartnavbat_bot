@@ -70,6 +70,11 @@ async def init_db():
                 ADD COLUMN IF NOT EXISTS  source TEXT DEFAULT 'user'
                 """)
         await conn.execute("""
+                ALTER TABLE users
+                ADD COLUMN IF NOT EXISTS  username TEXT
+                """)
+
+        await conn.execute("""
                         ALTER TABLE staff
                         ADD COLUMN IF NOT EXISTS  phone TEXT DEFAULT 0
                         """)
