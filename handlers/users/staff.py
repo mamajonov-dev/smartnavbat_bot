@@ -70,7 +70,7 @@ async def create_referal_link(message: Message):
 async def show_booking_day_reply(message: types.Message):
     user_id = message.from_user.id
     today = datetime.now(TZ).date()
-    target_date = today if message.text == "📅 Bugun navbat olish" else today + timedelta(days=1)
+    target_date = today if message.text == "📅 Bugungi navbatlarni ko\'rish" else today + timedelta(days=1)
 
     # Staff / hodimni olish
     async with db.pool.acquire() as conn:
@@ -428,3 +428,43 @@ async def getlocation(message: Message, state: FSMContext):
         else:
             await message.answer('Buyruqlarni birini tanlang', reply_markup=location_button())
             await LocationState.location.set()
+
+from keyboards.inline.inline_keyboards import offline_slots_keyboard
+@dp.message_handler(text="➕ Offline mijoz qo‘shish")
+async def add_offline_client(message: types.Message):
+    staff = await get_staff_by_telegram_id(message.from_user.id)
+    if not staff:
+        return await message.answer("Siz staff emassiz.")
+
+    kb = await offline_slots_keyboard(staff, message.chat.id, 'today')
+
+    await message.answer("Band qilinadigan vaqtni tanlang:", reply_markup=kb)
+@dp.callback_query_handler(lambda c: c.data.startswith("offline_slot_"))
+async def offline_slot_book(callback: types.CallbackQuery):
+    staff = await get_staff_by_telegram_id(callback.from_user.id)
+    if not staff:
+        return await callback.answer("Siz staff emassiz", show_alert=True)
+    slot_str = callback.data.split("_", 2)[2]   # masalan 14:30
+    today = datetime.now(TZ).date()
+    hour, minute = map(int, slot_str.split(":"))
+    slot_time = datetime(today.year, today.month, today.day, hour, minute, tzinfo=TZ)
+
+    result = await create_booking_forstaff(
+        staff_id=staff["id"],
+        slot_time=slot_time,
+        user_id=None,
+        name="Offline mijoz",
+        phone=None,
+        extra_phone=None
+    )
+    if result is False:
+        await callback.answer("Bu vaqt allaqachon band", show_alert=True)
+    elif result is True:
+        kb = await offline_slots_keyboard(staff, callback.message.chat.id, 'today')
+
+        await callback.message.edit_text(
+            f"✅ {slot_str} offline mijoz uchun band qilindi", reply_markup=kb
+        )
+
+        await callback.answer('"Slot muvaffaqiyatli band qilindi"', show_alert=True)
+

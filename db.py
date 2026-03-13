@@ -8,6 +8,17 @@ from data.config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 
 pool = None
 
+# DATABASE_URL = "postgresql://postgres:1234@localhost:5433/barberdb"
+
+
+
+# async def connect_db():
+#     global pool
+#     pool = await asyncpg.create_pool(
+#         DATABASE_URL
+#         # "postgresql://postgres:1234@localhost:5432/barbersaas"
+#     )
+
 async def connect_db():
     global pool
     pool = await asyncpg.create_pool(
@@ -34,7 +45,6 @@ async def close_db():
 # =====================
 async def init_db():
     async with pool.acquire() as conn:
-
         # =========================
         # Users / Foydalanuvchilar
         # =========================
@@ -59,11 +69,10 @@ async def init_db():
             has_business BOOLEAN DEFAULT FALSE
         )
         """)
-        # await conn.execute("""
-        #         INSERT INTO services(name, has_business)
-        #         VALUES ($1, $2)
-        #
-        #         """, 'Klinikalar', True)
+        await conn.execute("""
+                ALTER TABLE bookings
+                ADD COLUMN IF NOT EXISTS  source TEXT DEFAULT 'user'
+                """)
 
         # =========================
         # Companies / Bizneslar
@@ -80,7 +89,7 @@ async def init_db():
             tomorrow_closed BOOLEAN DEFAULT FALSE,
             active BOOLEAN DEFAULT TRUE,
             subscription_until TIMESTAMPTZ,
-            telegram_id TYPE BIGINT
+            telegram_id  BIGINT
         )
         """)
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_companies_service_id ON companies(service_id);")
@@ -101,8 +110,7 @@ async def init_db():
             work_end TIME DEFAULT '21:00',
             tomorrow_closed BOOLEAN DEFAULT FALSE,
             subscription_until TIMESTAMPTZ,
-            telegram_id TYPE BIGINT
-            
+            telegram_id  BIGINT
         )
         """)
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_staff_company_id ON staff(company_id);")

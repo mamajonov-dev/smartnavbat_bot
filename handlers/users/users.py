@@ -413,7 +413,7 @@ async def booking_extra_phone(message: types.Message, state: FSMContext):
                     await bot.send_message(chat_id=telegram_id,
                                            text=f"""📢 Yangi bron!
 
-👤 Mijoz: <b>{message.from_user.full_name}</b>
+👤 Mijoz: <b>{message.from_user.full_name}</b>   
 👨‍🔧 Xizmat ko'rsatuvchi: {staff['name']}
 ⏰ Vaqt:  {slot_time.today().date()} <b>{slot_str}</b>
 📞 Telefon: {extra_phone}

@@ -55,6 +55,7 @@ def staff_menu_button():
         KeyboardButton("📅 Ertangi navbatlarni ko\'rish")
     )
     kb.add(
+        KeyboardButton(text="➕ Offline mijoz qo‘shish"),
         KeyboardButton("🔗 Referal link yaratish")
     )
 

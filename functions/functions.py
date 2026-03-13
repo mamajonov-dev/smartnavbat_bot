@@ -84,7 +84,8 @@ async def get_available_slots(staff, user_id, day_type):
             WHERE user_id=$1
             AND staff_id=$2
             AND DATE(slot_time)=$3
-        """, user_id, staff["id"], day)
+            AND source=$4
+        """, user_id, staff["id"], day, 'user')
 
         if user_count >= 2:
             return []
@@ -149,7 +150,19 @@ async def create_booking(staff_id, user_id, slot_time, name, phone, extra_phone)
         """, staff_id, user_id, slot_time, datetime.now(TZ), name, phone, extra_phone)
 
         return True
+async def create_booking_forstaff(staff_id, user_id, slot_time, name, phone, extra_phone):
 
+    async with db.pool.acquire() as conn:
+        try:
+            await conn.execute("""
+                INSERT INTO bookings
+                (staff_id, user_id, slot_time, created_at, name, phone, extra_phone, source)
+                VALUES ($1,$2,$3,$4,$5,$6,$7, $8)
+                ON CONFLICT (staff_id, slot_time) WHERE status IN ('pending','confirmed') DO NOTHING
+            """, staff_id, user_id, slot_time, datetime.now(TZ), name, phone, extra_phone, 'staff')
+            return True
+        except:
+            return False
 
 import math
 

@@ -1,11 +1,11 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 import db
-
+from functions.functions import get_available_slots
 def confirm_button():
     markup = InlineKeyboardMarkup()
     markup.add(
-        InlineKeyboardButton(text='✅ Ha', callback_data='confirm_yes'),
-        InlineKeyboardButton(text='❌ Yo\'q', callback_data='confirm_no')
+        InlineKeyboardButton(text='✅ Ha', callback_data='tasdiqlash_yes'),
+        InlineKeyboardButton(text='❌ Yo\'q', callback_data='tasdiqlash_no')
     )
     return markup
 
@@ -59,4 +59,16 @@ async def staff_inline_button(company_id=None, service_id=None):
     )
     return markup
 
-
+from db import TZ
+async def offline_slots_keyboard(staff, user_id, day_type):
+    slots = await get_available_slots(staff, user_id, day_type)
+    kb = InlineKeyboardMarkup(row_width=3)
+    for slot in slots:
+        time_str = slot.astimezone(TZ).strftime("%H:%M")
+        kb.insert(
+            InlineKeyboardButton(
+                text=time_str,
+                callback_data=f"offline_slot_{time_str}"
+            )
+        )
+    return kb
