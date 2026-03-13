@@ -1,7 +1,6 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-
 TZ = ZoneInfo("Asia/Tashkent")
 
 from data.config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
@@ -11,13 +10,13 @@ pool = None
 # DATABASE_URL = "postgresql://postgres:1234@localhost:5433/barberdb"
 
 
-
 # async def connect_db():
 #     global pool
 #     pool = await asyncpg.create_pool(
 #         DATABASE_URL
 #         # "postgresql://postgres:1234@localhost:5432/barbersaas"
 #     )
+
 
 async def connect_db():
     global pool
@@ -35,9 +34,6 @@ async def close_db():
     global pool
     if pool:
         await pool.close()
-
-
-
 
 
 # =====================
@@ -73,6 +69,55 @@ async def init_db():
                 ALTER TABLE bookings
                 ADD COLUMN IF NOT EXISTS  source TEXT DEFAULT 'user'
                 """)
+        await conn.execute("""
+                        ALTER TABLE staff
+                        ADD COLUMN IF NOT EXISTS  phone TEXT DEFAULT 0
+                        """)
+        await conn.execute("""
+                        ALTER TABLE companies
+                        ADD COLUMN IF NOT EXISTS  phone TEXT DEFAULT 0
+                        """)
+        await conn.execute("""
+        ALTER TABLE staff ADD COLUMN IF NOT EXISTS notified_10_days BOOLEAN DEFAULT FALSE
+        """)
+
+        await conn.execute("""
+        ALTER TABLE staff ADD COLUMN IF NOT EXISTS notified_7_days BOOLEAN DEFAULT FALSE
+        """)
+
+        await conn.execute("""
+        ALTER TABLE staff ADD COLUMN IF NOT EXISTS notified_5_days BOOLEAN DEFAULT FALSE
+        """)
+
+        await conn.execute("""
+        ALTER TABLE staff ADD COLUMN IF NOT EXISTS notified_3_days BOOLEAN DEFAULT FALSE
+        """)
+
+
+
+
+        await conn.execute("""
+        ALTER TABLE companies ADD COLUMN IF NOT EXISTS notified_10_days BOOLEAN DEFAULT FALSE
+        """)
+
+        await conn.execute("""
+        ALTER TABLE companies ADD COLUMN IF NOT EXISTS notified_7_days BOOLEAN DEFAULT FALSE
+        """)
+
+        await conn.execute("""
+        ALTER TABLE companies ADD COLUMN IF NOT EXISTS notified_5_days BOOLEAN DEFAULT FALSE
+        """)
+
+        await conn.execute("""
+        ALTER TABLE companies ADD COLUMN IF NOT EXISTS notified_3_days BOOLEAN DEFAULT FALSE
+        """)
+
+
+
+
+
+
+
 
         # =========================
         # Companies / Bizneslar
@@ -157,29 +202,39 @@ async def init_db():
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_bookings_slot_time ON bookings(slot_time);")
 
 
-from aiogram import Bot, Dispatcher
-from aiogram.contrib.fsm_storage.memory import MemoryStorage
 import asyncpg
-import asyncio
+
+
 async def update_subscription(new_date, company_id=None, staff_id=None):
     async with pool.acquire() as conn:
         if company_id:
             await conn.execute("""
                 UPDATE companies 
-                SET subscription_until=$1 
+                SET subscription_until=$1,
+                    notified_10_days=FALSE,
+                    notified_7_days=FALSE,
+                    notified_5_days=FALSE,
+                    notified_3_days=FALSE
                 WHERE id=$2
             """, new_date, company_id)
 
             await conn.execute("""
                 UPDATE staff 
-                SET subscription_until=$1 
+                SET subscription_until=$1,
+                    notified_10_days=FALSE,
+                    notified_7_days=FALSE,
+                    notified_5_days=FALSE,
+                    notified_3_days=FALSE
                 WHERE company_id=$2
             """, new_date, company_id)
 
         else:
             await conn.execute("""
                 UPDATE staff 
-                SET subscription_until=$1 
+                SET subscription_until=$1,                    
+                    notified_10_days=FALSE,
+                    notified_7_days=FALSE,
+                    notified_5_days=FALSE,
+                    notified_3_days=FALSE 
                 WHERE id=$2
             """, new_date, staff_id)
-

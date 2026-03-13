@@ -53,3 +53,21 @@ class LocationState(StatesGroup):
 class SearchBarber(StatesGroup):
     waiting_for_name = State()
 
+class EditCompanyState(StatesGroup):
+    user_id = State()
+    change = State()
+    name = State()
+    active = State()
+    location = State()
+    phone = State()
+    telegram_id = State()
+class EditStaffState(StatesGroup):
+    user_id = State()
+    change = State()
+    name = State()
+    active = State()
+    location = State()
+    phone = State()
+    telegram_id = State()
+
+

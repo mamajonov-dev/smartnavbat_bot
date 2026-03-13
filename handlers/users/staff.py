@@ -129,14 +129,19 @@ async def show_booking_day_reply(message: types.Message):
 
         # text = f"👤 {staff_names[staff_id]} — {'Bugungi' if message.text == '📅 Bugun' else 'Ertangi'} mijozlar:\n\n"
         for b in rows:
-            text = f"👤 {staff_names[staff_id]} — {'Bugungi' if message.text == '📅 Bugun' else 'Ertangi'} mijozlar:\n\n"
-            name = b['customer_name']
-            phone = b['phone']
-            extra_phone = b['extra_phone']
+            text = f"""👤 {staff_names[staff_id]} — {'Bugungi' if message.text == "📅 Bugungi navbatlarni ko'rish" else 'Ertangi'} mijozlar:\n\n"""
+            # name = b['customer_name']
+            # phone = b['phone']
+            # extra_phone = b['extra_phone']
             booking_id = b["booking_id"]
-            time = b["slot_time"].astimezone(TZ).strftime("%H:%M")
+            # time = b["slot_time"].astimezone(TZ).strftime("%H:%M")
             status = b["status"]
-            slot_time = b["slot_time"].astimezone(TZ).strftime("%H:%M")
+            slot_time = (
+                b["slot_time"].astimezone(TZ).strftime("%H:%M")
+                if b["slot_time"]
+                else "Noma'lum"
+            )
+            # slot_time = b["slot_time"].astimezone(TZ).strftime("%H:%M")
             status_emoji = "🟢 Keladi" if b["status"] == "confirmed" else "🟡 Band qilingan"
             text += f"🕒 {slot_time}\n👤 {b['customer_name']}\nTelefon: {b['phone']}, {b['extra_phone']}\nHolati: {status_emoji}\n\n"
             kb = InlineKeyboardMarkup()
@@ -144,7 +149,7 @@ async def show_booking_day_reply(message: types.Message):
                 kb.add(
                     InlineKeyboardButton(
                         "❌ Bekor qilish",
-                        callback_data=f"barber_cancel_{booking_id}"
+                        callback_data=f"staff_cancel_{booking_id}"
                     )
                 )
             await message.answer(text, reply_markup=kb)
@@ -231,7 +236,7 @@ async def save_end_work_time(message: types.Message, state: FSMContext):
         staff = await get_staff_by_telegram_id(message.from_user.id)
         print(staff)
         if not staff:
-            await message.answer("❌ Barber topilmadi.", reply_markup=staff_menu_button())
+            await message.answer("❌ Xodim topilmadi.", reply_markup=staff_menu_button())
             await state.finish()
             return
 
@@ -247,8 +252,8 @@ async def save_end_work_time(message: types.Message, state: FSMContext):
         await state.finish()
 
 
-@dp.callback_query_handler(lambda c: c.data.startswith("barber_cancel_"))
-async def barber_cancel(callback: types.CallbackQuery):
+@dp.callback_query_handler(lambda c: c.data.startswith("staff_cancel_"))
+async def staff_cancel(callback: types.CallbackQuery):
     booking_id = int(callback.data.split("_")[2])
 
     async with db.pool.acquire() as conn:
@@ -266,7 +271,7 @@ async def barber_cancel(callback: types.CallbackQuery):
 
         await conn.execute("""
             UPDATE bookings
-            SET status='canceled'
+            SET status='cancelled'
             WHERE id=$1
         """, booking_id)
 
@@ -287,7 +292,7 @@ async def barber_cancel(callback: types.CallbackQuery):
 async def toggle_tomorrow(callback: types.CallbackQuery):
     staff = await get_staff_by_telegram_id(callback.from_user.id)
     if not staff:
-        return await callback.answer("Siz barber emassiz ❌", show_alert=True)
+        return await callback.answer("Siz xodim emassiz ❌", show_alert=True)
     if staff['company_id']:
         async with db.pool.acquire() as conn:
             async with conn.transaction():
@@ -368,10 +373,10 @@ async def toggle_tomorrow(callback: types.CallbackQuery):
 
 
 
-@dp.message_handler(text='✂️ Barberlar')
-async def barbers(message: Message):
-    await message.answer("Lokatsiyangizni jo\'nating", reply_markup=location_button())
-    await LocationState.location.set()
+# @dp.message_handler(text='✂️ Barberlar')
+# async def barbers(message: Message):
+#     await message.answer("Lokatsiyangizni jo\'nating", reply_markup=location_button())
+#     await LocationState.location.set()
 
 
 
@@ -423,7 +428,8 @@ async def getlocation(message: Message, state: FSMContext):
         await state.finish()
     else:
         if message.text == 'Bekor qilish':
-            await message.answer('Asosiy menu', reply_markup=main_menu_button())
+            markup = await main_menu_button()
+            await message.answer('Asosiy menu', reply_markup=markup)
             await state.finish()
         else:
             await message.answer('Buyruqlarni birini tanlang', reply_markup=location_button())

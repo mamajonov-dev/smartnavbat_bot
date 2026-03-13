@@ -1,21 +1,19 @@
-from aiogram.types import KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardButton,InlineKeyboardMarkup
-import db
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import (KeyboardButton,
+                           ReplyKeyboardMarkup,
+                           InlineKeyboardButton,
+                           InlineKeyboardMarkup)
 
 
 async def main_menu_button():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add(
         KeyboardButton("📝 Navbatga yozilish"),
-
+        KeyboardButton("🔎 Qidirish")
     )
     kb.add(
         KeyboardButton("📋 Buyurtmalarim")
     )
     return kb
-
-
-
 
 
 def cancelbutton():
@@ -35,6 +33,7 @@ def main_menu_inline(staff_id):
     )
     return kb
 
+
 def location_button():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add(KeyboardButton("✂️ Lokatsiya jo'natish", request_location=True))
@@ -42,11 +41,13 @@ def location_button():
     kb.add("Bekor qilish")
     return kb
 
+
 def search_barber_button():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add(KeyboardButton("🔎 Barber qidirish"))
+    kb.add(KeyboardButton("🔎 Qidirish"))
     kb.add("Asosiy menu")
     return kb
+
 
 def staff_menu_button():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
@@ -58,7 +59,6 @@ def staff_menu_button():
         KeyboardButton(text="➕ Offline mijoz qo‘shish"),
         KeyboardButton("🔗 Referal link yaratish")
     )
-
     return kb
 
 # def booking_day_reply_keyboard():

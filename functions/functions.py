@@ -17,10 +17,20 @@ async def get_staff_by_username(username):
 
 async def get_staff_by_telegram_id(tg_id):
     async with db.pool.acquire() as conn:
-        return await conn.fetchrow(
+        staff =  await conn.fetchrow(
             "SELECT * FROM staff WHERE telegram_id=$1",
             tg_id
         )
+        return staff
+
+async def get_company_by_telegram_id(tg_id):
+    async with db.pool.acquire() as conn:
+        staff =  await conn.fetchrow(
+            "SELECT * FROM companies WHERE telegram_id=$1",
+            tg_id
+        )
+        return staff
+
 
 async def get_staff_by__id(staff_id):
     async with db.pool.acquire() as conn:

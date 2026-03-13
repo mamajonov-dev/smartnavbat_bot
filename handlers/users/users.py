@@ -119,7 +119,7 @@ async def choose_staff(callback: CallbackQuery, state: FSMContext):
 
     async with db.pool.acquire() as conn:
         staff = await conn.fetchrow("""
-                SELECT *
+                SELECT latitude, longitude, telegram_id
                 FROM staff
                 WHERE id=$1
             """, staff_id)
@@ -156,7 +156,7 @@ async def booking_handler(update: Union[types.CallbackQuery, types.Message], sta
 
             async with db.pool.acquire() as conn:
                 staff = await conn.fetchrow(
-                    "SELECT * FROM staff WHERE id=$1",
+                    "SELECT id,work_start,work_end,tomorrow_closed,telegram_id FROM staff WHERE id=$1",
                     staff_id
                 )
 
@@ -430,7 +430,9 @@ async def booking_extra_phone(message: types.Message, state: FSMContext):
 
 Iltimos, belgilangan vaqtda keling.
 Rahmat! 🙌
-    
+
+❗️Eslatma! ⏰ Yozilgan vaqtingizdan 20 minut oldin sizga tasdiqlash uchun eslatma yuboriladi. Agar 10 daqiqa ichida tasdiqlmaangiz bron avtomatik bekor qilinadi.
+
 Xizmat ko\'rsatuvchi joylashgan manzil 👇👇👇""",
                     reply_markup=markup)
                 await message.answer_location(latitude=latitude, longitude=longitude)
@@ -477,7 +479,7 @@ async def confirm_or_cancel(callback: types.CallbackQuery):
 @dp.callback_query_handler(lambda c: c.data.startswith("user_cancel_"))
 async def user_cancel(callback: types.CallbackQuery):
     booking_id = int(callback.data.split("_")[2])
-
+    markup = await main_menu_button()
     async with db.pool.acquire() as conn:
         row = await conn.fetchrow("""
             SELECT b.user_id, b.staff_id, b.slot_time, b.status, br.telegram_id
@@ -503,7 +505,7 @@ async def user_cancel(callback: types.CallbackQuery):
     time_str = slot_time.strftime("%H:%M")
 
     # ✅ Userga javob
-    await callback.message.edit_text("❌ Buyurtma bekor qilindi")
+    await callback.message.edit_text("❌ Buyurtma bekor qilindi", reply_markup=markup)
     await callback.answer()
 
     # 🔔 Barberga xabar
@@ -516,45 +518,60 @@ async def user_cancel(callback: types.CallbackQuery):
         pass
 
 
-@dp.message_handler(text="🔎 Barber qidirish")
+@dp.message_handler(text="🔎 Qidirish")
 async def search_barber_start(message: Message):
-    await message.answer("🔎 Barber nomini yozing:", reply_markup=cancelbutton())
+    await message.answer("🔎 Xodim nomini yozing:", reply_markup=cancelbutton())
     await SearchBarber.waiting_for_name.set()
 
 
 @dp.message_handler(state=SearchBarber.waiting_for_name)
 async def search_barber_process(message: Message, state: FSMContext):
+    main_markup = await main_menu_button()
     if message.text == '❌ Bekor qilish' or message.text == '/start' or message.text == '/help':
-        await message.answer('❌ Qidiruv bekor qilindi', reply_markup=search_barber_button())
+        await message.answer('❌ Qidiruv bekor qilindi', reply_markup=main_markup)
         await state.finish()
     else:
         query = message.text.strip()
         async with db.pool.acquire() as conn:
-            barbers = await conn.fetch("""
-                SELECT id, name, telegram_id
-                FROM barbers
+            staffs = await conn.fetch("""
+                SELECT id, name, company_id
+                FROM staff
                 WHERE active = TRUE
-                  AND name ILIKE '%' || $1 || '%'
+                AND name ILIKE '%' || $1 || '%'
                 ORDER BY name
                 LIMIT 10
             """, query)
-
-        if not barbers:
-            await message.answer("❌ Bunday barber topilmadi.", reply_markup=search_barber_button())
-            await message.answer('Siz izlagan Barber topilmasa, "🔎 Barber qidirish" tugmasini bosing',
-                                 reply_markup=search_barber_button())
+            companies = await conn.fetch(
+                """
+                SELECT id, name
+                FROM companies
+                WHERE active = TRUE
+                AND name ILIKE '%' || $1 || '%'
+                ORDER BY name
+                LIMIT 10
+                """, query
+            )
+        if not staffs and not companies:
+            await message.answer("""❌ Bunday ma'llumot topilmadi.\nSiz izlagan xodim topilmasa, "🔎 Qidirish" tugmasini bosing""", reply_markup=main_markup)
             await state.finish()
         else:
             kb = InlineKeyboardMarkup(row_width=1)
-
-            for b in barbers:
-                kb.add(
-                    InlineKeyboardButton(
-                        text=f"✂️ {b['name']}",
-                        callback_data=f"choose_barber_{b['id']}_{b['telegram_id']}"
+            if staffs:
+                for staff in staffs:
+                    kb.add(
+                        InlineKeyboardButton(
+                            text=f"✂️ {staff['name']}",
+                            callback_data=f"choose_staff_{staff['company_id']}_{staff['id']}_{staff['name']}"
+                        )
                     )
-                )
-
-            await message.answer("Topilgan barberlar 👇", reply_markup=kb)
-            await message.answer('Barberni tanlang', reply_markup=search_barber_button())
+            if companies:
+                for company in companies:
+                    kb.add(
+                        InlineKeyboardButton(
+                            text=f"✂️ {company['name']}",
+                            callback_data=f"choose_company_{company['id']}"
+                        )
+                    )
+            await message.answer("Topilgan xodimlar 👇", reply_markup=kb)
+            await message.answer('Xodimni tanlang', reply_markup=main_markup)
             await state.finish()

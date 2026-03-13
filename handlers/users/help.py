@@ -5,76 +5,158 @@ from loader import dp
 from functions.functions import get_staff_by_telegram_id
 
 
-
 @dp.message_handler(commands=['help'])
 async def help_command(message: types.Message):
     barber = await get_staff_by_telegram_id(message.chat.id)
-#     if barber:
-#         text = """📖 Barber qo‘llanmasi
-#
-# Assalomu alaykum ✂️
-# Siz barber sifatida botdan foydalanishingiz mumkin.
-#
-# 📌 Imkoniyatlar:
-#
-# 📅 Band qilinuvlar
-# — Sizga yozilgan mijozlarni ko‘rasiz
-# — Yoziluvni tasdiqlash yoki bekor qilish mumkin
-#
-# ⏰ Eslatma tizimi:
-# — Mijozga avtomatik reminder yuboriladi
-# — Kelmagan mijozlar no-show sifatida belgilanadi
-#
-# 🚫 No-show tizimi:
-# — 3 marta kelmagan mijoz avtomatik blacklist qilinadi
-#
-# 📊 Statistika:
-# — Qancha yoziluv
-# — Qancha bekor qilingan
-# — No-show soni
-#
-# 🔒 Faollik:
-# Agar “active = FALSE” bo‘lsa, siz mijozlarga ko‘rinmaysiz."""
+    text = ''
+    if barber:
+        text = """
+        📌 <b>Staff uchun qisqa yo‘riqnoma</b>
 
+        1️⃣ <b>Staff menyuni ochish</b>
+        /staff komandasini yozing → Staff menyu ochiladi.
+
+        ━━━━━━━━━━━━━━
+
+        2️⃣ <b>Navbatni ko‘rish</b>
+
+        📅 <b>Bugungi navbatlar</b>  
+        "Bugungi navbatlarni ko‘rish" tugmasini bosing → bugun yozilgan mijozlar chiqadi.
+
+        📅 <b>Ertangi navbatlar</b>  
+        "Ertangi navbatlarni ko‘rish" tugmasini bosing → ertangi yozilgan mijozlar chiqadi.
+
+        ━━━━━━━━━━━━━━
+
+        3️⃣ <b>Offline mijoz qo‘shish</b>
+
+        ➕ "Offline mijoz qo‘shish" tugmasini bosing  
+        → bo‘sh vaqtni tanlang  
+        → slot band bo‘ladi.
+
+        ━━━━━━━━━━━━━━
+
+        4️⃣ <b>Navbatni bekor qilish</b>
+
+        Kerakli mijozni tanlang  
+        → ❌ "Bekor qilish" tugmasini bosing  
+        → navbat bekor qilinadi.
+
+        ━━━━━━━━━━━━━━
+
+        5️⃣ <b>Ish vaqtini o‘zgartirish</b>
+
+        ⚙️ "Ish vaqti" tugmasini bosing  
+        → ish boshlanish va tugash vaqtini kiriting.
+
+        ━━━━━━━━━━━━━━
+
+        6️⃣ <b>Bugun ishlamaslik</b>
+
+        Ish tugash vaqtini hozirgi vaqtgacha o‘zgartiring  
+        → bugungi navbat yopiladi.
+
+        ━━━━━━━━━━━━━━
+
+        7️⃣ <b>Ertaga ishlamaslik</b>
+
+        "Ertaga ochiq (o‘zgartirish)" tugmasini bosing  
+        → ertangi navbat yopiladi.
+
+        ━━━━━━━━━━━━━━
+
+        🔗 <b>Referal link</b>  
+        Mijozlarni yozilish uchun referal link orqali yuborishingiz mumkin.
+
+        ━━━━━━━━━━━━━━
+
+        ⚠️ <b>Eslatma</b>
+
+        • Bir vaqtga faqat bitta mijoz yoziladi  
+        • Offline mijoz qo‘shilganda ma'lumot kiritish shart emas  
+        • Xato bo‘lsa slotni bekor qilib qayta band qiling
+        """
+    else:
+
+        text = """
+            📖 <b>Foydalanuvchi qo‘llanmasi</b>
+
+            Assalomu alaykum 👋  
+            Bu bot orqali siz o‘zingizga qulay vaqtga yozilishingiz mumkin.
+
+            ━━━━━━━━━━━━━━
+
+            📌 <b>Qanday ishlaydi:</b>
+
+            1️⃣ Service tanlang  
+            2️⃣ Hodimni tanlang  
+            3️⃣ 🕒 Vaqtni tanlang  
+            4️⃣ ✅ Bronni tasdiqlang
+
+            ━━━━━━━━━━━━━━
+
+            📅 Tanlangan vaqt siz uchun band qilinadi.
+
+            ⏰ Yozilgan vaqtingizdan  
+            10 minut oldin sizga eslatma yuboriladi.
+
+            ❗ Agar kela olmasangiz, oldindan bekor qiling.
+            """
     if message.chat.id in MANAGER_IDS:
         text = """
-    🤖 BOT YO‘RIQNOMASI
-    
-    /start username → Barber sahifasi
-    📅 Bugun yozilish → slot tanlash
-    
-    /barber → Barber panel
-    /add_barber → Menejer uchun
-    
-    • 1 kunda 2 ta yozilish
-    • 10 minut oldin eslatma
-    """
-    else:
-        text = """
-            📖 Foydalanuvchi qo‘llanmasi
+        🤖 <b>BOT YO‘RIQNOMASI</b>
 
-Assalomu alaykum 👋
-Bu bot orqali siz o‘zingizga qulay barberga yozilishingiz mumkin.
+        📅 <b>Bugungi yozilish</b>  
+        Mijozlar slot tanlab yozilishadi.
 
-📌 Qanday ishlaydi:
+        ━━━━━━━━━━━━━━
 
-1️⃣ 📍 Lokatsiya yuboring — sizga yaqin barberlar chiqadi
-2️⃣ ✂️ Barber tanlang
-3️⃣ 🕒 Vaqtni tanlang
-4️⃣ ✅ Bronni tasdiqlang
+        ⚙️ <b>Admin buyruqlari</b>
 
-⏰ Eslatma:
-• Yozilgan vaqtdan 20 minut oldin sizga eslatma keladi
-• Agar javob bermasangiz, bron bekor qilinadi
-• 3 marta kelmasangiz, akkauntingiz bloklanadi 🚫
+        👨‍💼 /staff  
+        Barber panel
 
-📋 Buyurtmalar:
-“📋 Buyurtmalarim” orqali aktiv va eski yoziluvlarni ko‘rishingiz mumkin.
+        ➕ /add_service  
+        Yangi service qo‘shish
 
-❌ Bekor qilish:
-Bronni vaqtigacha bekor qilishingiz mumkin.
+        ➕ /add_staff  
+        Yangi hodim qo‘shish
 
-🔎 Qidirish:
-“🔎 Barber qidirish” orqali ism bo‘yicha qidirishingiz mumkin.
-            """
+        🏢 /add_company  
+        Yangi tashkilot qo‘shish
+
+        💳 /add_subscription  
+        Obunani uzaytirish (kun kiritiladi)
+
+        📋 /view_staff  
+        Hodimlar ro‘yxati
+
+        🏢 /view_company  
+        Tashkilotlar ro‘yxati
+
+        ✏️ /edit_staff  
+        Hodim ma'lumotlarini o‘zgartirish
+
+        ✏️ /edit_company  
+        Tashkilot ma'lumotlarini o‘zgartirish
+
+        ━━━━━━━━━━━━━━
+
+        📌 <b>Kerakli ma'lumotlar</b>
+
+        👤 Ism: Umid Barber  
+        📱 Telegram ID: 2244567  
+        📍 Lokatsiya: Telegram orqali yuboriladi  
+        🕒 Ish vaqti: 06:00 – 18:00  
+        📞 Telefon: +998901234567  
+        🔗 Username: @username
+
+        ━━━━━━━━━━━━━━
+
+        ⚠️ <b>Qoidalar</b>
+
+        • Bir mijoz kuniga maksimal 2 marta yozilishi mumkin  
+        • Mijozga 10 minut oldin eslatma yuboriladi
+        """
+
     await message.answer(text)

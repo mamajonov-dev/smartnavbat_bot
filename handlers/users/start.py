@@ -50,18 +50,26 @@ async def start_handler(message: types.Message, state: FSMContext):
             )
     else:
         markup = await main_menu_button()
+        text = """
+👋 Assalomu alaykum!
+
+<b>SmartNavbat</b> botiga xush kelibsiz.
+
+Bu bot orqali siz xizmatlarga qulay vaqtga yozilishingiz mumkin.
+
+📌 Qanday ishlaydi:
+
+1️⃣ Service tanlang  
+2️⃣ Hodimni tanlang  
+3️⃣ Vaqtni tanlang  
+4️⃣ Bronni tasdiqlang
+
+⏰ Yozilgan vaqtingizdan 10 minut oldin sizga eslatma yuboriladi.
+
+✅ Qulay va tez navbat tizimi.
+        """
         await message.answer(
-                """Assalomu alaykum! 👋
-
-Xush kelibsiz!
-
-Bu bot orqali siz xizmatlarga tez va qulay tarzda yozilishingiz mumkin.
-
-📌 Xizmat turini tanlang  
-👨‍🔧 Xizmat ko'rsatuvchini tanlang  
-⏰ Qulay vaqtni band qiling  
-
-Bir necha bosishda xizmatlarga yoziling! 🚀""",
+                text,
                 reply_markup=markup
             )
 

@@ -42,17 +42,17 @@ async def staff_inline_button(company_id=None, service_id=None):
     if company_id:
         async with db.pool.acquire() as conn:
             staffs = await conn.fetch("""
-                SELECT *  FROM staff WHERE company_id=$1
+                SELECT company_id, id, name  FROM staff WHERE company_id=$1
             """, company_id)
     else:
         async with db.pool.acquire() as conn:
             staffs = await conn.fetch("""
-                SELECT *  FROM staff WHERE service_id=$1
+                SELECT company_id, id, name   FROM staff WHERE service_id=$1
             """, service_id)
     markup = InlineKeyboardMarkup()
     for staff in staffs:
         markup.add(
-            InlineKeyboardButton(f'{staff[3]}', callback_data=f'choose_staff_{staff[2]}_{staff[0]}_{staff[3]}')
+            InlineKeyboardButton(f'{staff[2]}', callback_data=f'choose_staff_{staff[0]}_{staff[1]}_{staff[2]}')
         )
     markup.add(
         InlineKeyboardButton(f'⬅ Asosiy menu', callback_data=f'main_menu')
@@ -72,3 +72,15 @@ async def offline_slots_keyboard(staff, user_id, day_type):
             )
         )
     return kb
+
+
+def edit_company_button():
+    markup = InlineKeyboardMarkup()
+    markup.add(
+        InlineKeyboardButton(text='Name', callback_data='name'),
+        InlineKeyboardButton(text='Location', callback_data='location'),
+        InlineKeyboardButton(text='Telegram id', callback_data='telegram_id'),
+        InlineKeyboardButton(text='Telefon', callback_data='phone'),
+    )
+    return markup
+

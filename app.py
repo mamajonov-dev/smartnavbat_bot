@@ -1,9 +1,9 @@
 from aiogram import executor
 import asyncio
-from loader import dp
+from loader import dp,bot
 import middlewares, filters, handlers
 from utils.notify_admins import on_startup_notify
-from utils.set_bot_commands import set_default_commands, booking_manager_loop
+from utils.set_bot_commands import set_default_commands, booking_manager_loop, subscription_reminder_loop_company,subscription_reminder_loop_staff
 import db
 
 
@@ -13,10 +13,10 @@ async def on_startup(dispatcher):
     # Устанавливаем дефолтные команды
     await set_default_commands(dispatcher)
 
-
-    # Уведомляет про запуск
     await on_startup_notify(dispatcher)
     asyncio.create_task(booking_manager_loop())
+    asyncio.create_task(subscription_reminder_loop_staff(bot))
+    asyncio.create_task(subscription_reminder_loop_company(bot))
 
     print("Bot ishga tushdi 🚀")
 async def on_shutdown(dispatcher):

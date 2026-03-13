@@ -1,19 +1,20 @@
 from aiogram import types
 from aiogram.types import (
-    Message, CallbackQuery,
-    KeyboardButton, ReplyKeyboardMarkup,
-    InlineKeyboardMarkup, InlineKeyboardButton)
+    Message, CallbackQuery)
 from aiogram.dispatcher import FSMContext
 from datetime import datetime, time, timedelta
 from keyboards.default.asosiymenu import main_menu_button, cancelbutton, location_button
 from keyboards.inline.inline_keyboards import (confirm_button, services_inline_button,
-                                               companies_inline_button, staff_inline_button)
+                                               companies_inline_button, staff_inline_button,
+                                               edit_company_button)
 
 from loader import bot, dp
-from functions.admin_functions import add_service_function
-from functions.functions import get_staff_by__id, get_comapny_by__id
-from functions.statistics import *
-from states.states import (AddServiceState, AddCompanyState, AddClientState, SubscriptionState)
+from functions.admin_functions import add_service_function, get_all_company_function, get_all_staffs_function
+from functions.functions import get_staff_by__id, get_comapny_by__id, get_company_by_telegram_id,get_staff_by_telegram_id
+
+from states.states import (
+    AddServiceState, AddCompanyState,
+    AddClientState, SubscriptionState, EditCompanyState, EditStaffState)
 from data.config import MANAGER_IDS
 import db
 
@@ -21,7 +22,8 @@ import db
 @dp.message_handler(commands=['add_service'])
 async def add_service_start(message: types.Message):
     if message.from_user.id not in MANAGER_IDS:
-        return await message.answer("Siz menejer emassiz.")
+        markup = await main_menu_button()
+        return await message.answer("Siz menejer emassiz.", reply_markup=markup)
     await message.answer("Servis nomini kiriting:", reply_markup=cancelbutton())
     await AddServiceState.name.set()
 
@@ -57,7 +59,8 @@ async def add_company_service(callback: CallbackQuery, state: FSMContext):
 @dp.message_handler(commands=['add_company'])
 async def add_company_start(message: types.Message):
     if message.from_user.id not in MANAGER_IDS:
-        return await message.answer("Siz menejer emassiz.")
+        markup = await main_menu_button()
+        return await message.answer("Siz menejer emassiz.", reply_markup=markup)
     await message.answer("Kompaniya telegram id kiriting:", reply_markup=cancelbutton())
     await AddCompanyState.telegram_id.set()
 
@@ -166,10 +169,25 @@ async def confirm_add_company(callback: CallbackQuery, state: FSMContext):
         try:
             async with db.pool.acquire() as conn:
                 await conn.execute("""
-                            INSERT INTO companies(name, service_id, latitude, longitude, work_start, work_end, subscription_until,telegram_id)
+                            INSERT INTO companies(
+                            name, 
+                            service_id, 
+                            latitude, 
+                            longitude, 
+                            work_start, 
+                            work_end, 
+                            subscription_until,
+                            telegram_id)
                             VALUES ($1, $2,$3, $4,$5, $6,$7, $8)
-                            """, name.lower(), service_id, latitude, longitude, work_time_start, work_time_end,
-                                   subscription_until, telegram_id)
+                            """,
+                                   name.lower(),
+                                   service_id,
+                                   latitude,
+                                   longitude,
+                                   work_time_start,
+                                   work_time_end,
+                                   subscription_until,
+                                   telegram_id)
             await bot.send_message(chat_id=callback.message.chat.id, text='✅ Tashkilot qoshildi', reply_markup=markup)
         except:
             await bot.send_message(chat_id=callback.message.chat.id, text='Xatolik', reply_markup=markup)
@@ -179,6 +197,9 @@ async def confirm_add_company(callback: CallbackQuery, state: FSMContext):
 # //////  ADD STAFF ////
 @dp.message_handler(commands='add_staff')
 async def add_staff(message: Message):
+    if message.from_user.id not in MANAGER_IDS:
+        markup = await main_menu_button()
+        return await message.answer("Siz menejer emassiz.", reply_markup=markup)
     await message.answer('Xizmat ko\'rsatuvchi ismi va kasbini kiriting', reply_markup=cancelbutton())
     await AddClientState.name.set()
 
@@ -206,7 +227,7 @@ async def add_service_client(callback: CallbackQuery, state: FSMContext):
             SELECT has_business FROM services
             WHERE id=$1
         """, service_id)
-    if exists == True:
+    if exists:
         markup = await companies_inline_button(service_id)
         await bot.send_message(chat_id=chatid, text='Kompaniya tanglang', reply_markup=markup)
         await AddClientState.company.set()
@@ -297,17 +318,19 @@ async def confirm_client(callback: CallbackQuery, state: FSMContext):
         data = await state.get_data()
         name = data['name']
         service_id = int(data['service_id'])
-        work_time_start = None
-        work_time_end = None
-        latitude = None
-        longitude = None
-        telegram_id = None
-        subscription_until = None
+
         if data.get("company_id"):
             company_id = data["company_id"]
             async with db.pool.acquire() as conn:
                 company = await conn.fetchrow(
-                    """SELECT * FROM companies WHERE id=$1""",
+                    """SELECT 
+                    work_start,
+                    work_end,
+                    latitude,
+                    longitude,
+                    telegram_id,
+                    subscription_until 
+                    FROM companies WHERE id=$1""",
                     company_id
                 )
             work_time_start = company['work_start']
@@ -326,10 +349,27 @@ async def confirm_client(callback: CallbackQuery, state: FSMContext):
             subscription_until = datetime.now(db.TZ) + timedelta(days=30)
         async with db.pool.acquire() as conn:
             await conn.execute("""
-                    INSERT INTO staff(service_id, company_id, name, latitude, longitude, work_start, work_end, subscription_until, telegram_id)
+                    INSERT INTO staff(
+                    service_id, 
+                    company_id, 
+                    name, 
+                    latitude, 
+                    longitude, 
+                    work_start, 
+                    work_end, 
+                    subscription_until, 
+                    telegram_id)
                         VALUES ($1, $2,$3, $4,$5, $6,$7, $8, $9)
-                        """, service_id, company_id, name.lower(), latitude, longitude, work_time_start, work_time_end,
-                               subscription_until, telegram_id)
+                        """,
+                               service_id,
+                               company_id,
+                               name.lower(),
+                               latitude,
+                               longitude,
+                               work_time_start,
+                               work_time_end,
+                               subscription_until,
+                               telegram_id)
         await state.finish()
         await bot.send_message(chat_id=callback.message.chat.id, text='Xizmat ko\'rsatuvchi joylandi',
                                reply_markup=markup)
@@ -337,6 +377,9 @@ async def confirm_client(callback: CallbackQuery, state: FSMContext):
 
 @dp.message_handler(commands=['add_subscription'])
 async def add_subscription(message: types.Message):
+    if message.from_user.id not in MANAGER_IDS:
+        markup = await main_menu_button()
+        return await message.answer("Siz menejer emassiz.", reply_markup=markup)
     markup = await services_inline_button()
     await message.answer('Service tanlang', reply_markup=markup)
     await SubscriptionState.service.set()
@@ -361,7 +404,8 @@ async def add_subscription_service(callback: types.CallbackQuery):
 @dp.callback_query_handler(state=SubscriptionState.staff)
 async def add_subscription_staff(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(staff=callback.data)
-    await bot.send_message(chat_id=callback.message.chat.id, text='Vaqtni kiriting', reply_markup=cancelbutton())
+    await bot.send_message(chat_id=callback.message.chat.id, text='Kunni kiriting. Masalan: 30',
+                           reply_markup=cancelbutton())
     await SubscriptionState.time.set()
 
 
@@ -369,7 +413,6 @@ async def add_subscription_staff(callback: types.CallbackQuery, state: FSMContex
 async def add_subscription_day(message: Message, state: FSMContext):
     markup = await main_menu_button()
     if message.text == '❌ Bekor qilish' or message.text == '/start':
-
         await message.answer('❌ Bekor qilindi', reply_markup=markup)
         await state.finish()
     else:
@@ -377,8 +420,6 @@ async def add_subscription_day(message: Message, state: FSMContext):
         # {'staff': 'choose_staff_None_1_jack barber'}
         data = await state.get_data()
         staff = data['staff']
-        print(staff)
-        print(type(staff))
         user = None
         staff_id = None
         company_id = None
@@ -389,9 +430,7 @@ async def add_subscription_day(message: Message, state: FSMContext):
             company_id = int(staff.split('_')[2])
             user = await get_comapny_by__id(company_id)
         try:
-
             days = int(message.text)
-
             # user = db.get_user(user_id)
             print(user, 'user')
             if not user:
@@ -418,3 +457,369 @@ async def add_subscription_day(message: Message, state: FSMContext):
         except Exception as e:
             await message.answer(f"Xatolik: {e}")
         await state.finish()
+
+
+@dp.message_handler(commands=['view_staff'])
+async def add_subscription(message: types.Message):
+    if message.from_user.id not in MANAGER_IDS:
+        markup = await main_menu_button()
+        return await message.answer("Siz menejer emassiz.", reply_markup=markup)
+    else:
+        staffs = await get_all_staffs_function()
+        print(staffs)
+        text = f'Stafflar \n\n'
+        for staff in staffs:
+            subscription_until = staff['subscription_until']
+            now = datetime.now(db.TZ)
+
+            # agar obuna hali tugamagan bo'lsa
+            if subscription_until > now:
+                subs = subscription_until - now
+                subs_text = f"{subs.days} kun qoldi"
+            else:
+                subs_text = "🔴 Obuna tugagan"
+
+            text += f"""-------------------
+Ismi: {staff['name']}
+Telefon: {staff['phone']}
+telegram_id: {staff['telegram_id']}
+Obuna: {subscription_until} gacha
+{subs_text}
+"""
+
+        await message.answer(text)
+
+
+@dp.message_handler(commands=['view_company'])
+async def add_subscription(message: types.Message):
+    if message.from_user.id not in MANAGER_IDS:
+        markup = await main_menu_button()
+        return await message.answer("Siz menejer emassiz.", reply_markup=markup)
+    else:
+        companies = await get_all_company_function()
+
+        text = f'Stafflar \n\n'
+        for company in companies:
+            subscription_until = company['subscription_until']
+            now = datetime.now(db.TZ)
+
+            # agar obuna hali tugamagan bo'lsa
+            if subscription_until > now:
+                subs = subscription_until - now
+                subs_text = f"{subs.days} kun qoldi"
+            else:
+                subs_text = "🔴 Obuna tugagan"
+
+            text += f"""-------------------
+Ismi: {company['name']}
+Telefon: {company['phone']}
+telegram_id: {company['telegram_id']}
+Obuna: {subscription_until.date()} gacha
+{subs_text}
+    """
+        await message.answer(text)
+
+
+@dp.message_handler(commands=['edit_company'])
+async def edit_company(message: types.Message):
+    if message.from_user.id not in MANAGER_IDS:
+        markup = await main_menu_button()
+        return await message.answer("Siz menejer emassiz.", reply_markup=markup)
+    else:
+        await message.answer('Telegram id kiriting', reply_markup=cancelbutton())
+        await EditCompanyState.user_id.set()
+
+
+@dp.message_handler(state=EditCompanyState.user_id)
+async def get_userid_edit(message: types.Message, state: FSMContext):
+    markup = await main_menu_button()
+    if message.text == '❌ Bekor qilish' or message.text == '/start':
+
+        await message.answer('❌ Bekor qilindi', reply_markup=markup)
+        await state.finish()
+    else:
+        telegram_id = message.text
+
+        if not telegram_id.isdigit():
+            await message.answer("❌ Telegram id xato. Qayta kiriting (faqat raqam, 7-15 raqam):",
+                                 reply_markup=markup)
+            await state.finish()
+            return
+        else:
+            company = await get_company_by_telegram_id(int(telegram_id))
+            if not company:
+                await message.answer("❌ Tashkilot topilmadi", reply_markup=markup)
+                await state.finish()
+                return
+            await state.update_data(telegram_id=int(telegram_id))
+            await message.answer('Tanlang', reply_markup=edit_company_button())
+            await EditCompanyState.change.set()
+
+
+@dp.callback_query_handler(state=EditCompanyState.change)
+async def get_change_edit(callback: types.CallbackQuery, state: FSMContext):
+    data = callback.data
+    chatid = callback.message.chat.id
+    if data == 'name':
+        await EditCompanyState.name.set()
+        text = 'Kompaniya nomini kiriting'
+    elif data == 'phone':
+        await EditCompanyState.phone.set()
+        text = ' telefon raqam kiriting'
+    elif data == 'location':
+        await EditCompanyState.location.set()
+        text = 'Lokatsiya jonatish kiriting'
+    elif data == 'telegram_id':
+        await EditCompanyState.telegram_id.set()
+        text = 'Telegram id kiriting'
+    else:
+        text = 'Buyruq mavjud emas'
+    await bot.send_message(chat_id=chatid, text=text, reply_markup=cancelbutton())
+
+
+@dp.message_handler(state=EditCompanyState.name)
+async def get_name_edit(message: types.Message, state: FSMContext):
+    markup = await main_menu_button()
+    if message.text == '❌ Bekor qilish' or message.text == '/start':
+
+        await message.answer('❌ Bekor qilindi', reply_markup=markup)
+        await state.finish()
+    else:
+        data = await state.get_data()
+        telegram_id = data['telegram_id']
+        async with db.pool.acquire() as conn:
+                await conn.execute("""
+                    UPDATE companies 
+                    SET name=$1
+                    WHERE telegram_id=$2
+                """, message.text, telegram_id)
+        await state.finish()
+        await message.answer('Malumot yangilandi', reply_markup=markup)
+
+
+@dp.message_handler(state=EditCompanyState.phone)
+async def get_phone_edit(message: types.Message, state: FSMContext):
+    markup = await main_menu_button()
+    if message.text == '❌ Bekor qilish' or message.text == '/start':
+        await message.answer('❌ Bekor qilindi', reply_markup=markup)
+        await state.finish()
+    else:
+        data = await state.get_data()
+        telegram_id = data['telegram_id']
+        async with db.pool.acquire() as conn:
+            await conn.execute("""
+                    UPDATE companies 
+                    SET phone=$1
+                    WHERE telegram_id=$2
+                """, message.text, telegram_id)
+            await conn.execute("""
+                    UPDATE staff 
+                    SET phone=$1
+                    WHERE telegram_id=$2
+                """, message.text, telegram_id)
+
+        await state.finish()
+        await message.answer('Malumot yangilandi', reply_markup=markup)
+
+@dp.message_handler(state=EditCompanyState.telegram_id)
+async def get_telegramid_edit(message: types.Message, state: FSMContext):
+    markup = await main_menu_button()
+    if message.text == '❌ Bekor qilish' or message.text == '/start':
+        await message.answer('❌ Bekor qilindi', reply_markup=markup)
+        await state.finish()
+        return
+    else:
+        data = await state.get_data()
+        telegram_id = data['telegram_id']
+        if message.text.isdigit():
+            newtgid= int(message.text)
+        else:
+            await message.answer('Telgram id xato', reply_markup=markup)
+            await state.finish()
+            return
+        async with db.pool.acquire() as conn:
+            await conn.execute("""
+                    UPDATE companies 
+                    SET telegram_id=$1
+                    WHERE telegram_id=$2
+                """, newtgid, telegram_id)
+            await conn.execute("""
+                    UPDATE staff 
+                    SET telegram_id=$1
+                    WHERE telegram_id=$2
+                """, newtgid, telegram_id)
+
+        await state.finish()
+        await message.answer('Malumot yangilandi', reply_markup=markup)
+
+@dp.message_handler(content_types='location', state=EditCompanyState.location)
+async def get_location_edit(message: types.Message, state: FSMContext):
+    markup = await main_menu_button()
+    if message.text == '❌ Bekor qilish' or message.text == '/start':
+        await message.answer('❌ Bekor qilindi', reply_markup=markup)
+        await state.finish()
+    else:
+        data = await state.get_data()
+        telegram_id = data['telegram_id']
+        latitude = message.location.latitude
+        longitude = message.location.longitude
+        async with db.pool.acquire() as conn:
+            await conn.execute("""
+                    UPDATE companies 
+                    SET latitude=$1,longitude=$2
+                    WHERE telegram_id=$3
+                """, latitude, longitude, telegram_id)
+            await conn.execute("""
+                    UPDATE staff 
+                    SET latitude=$1,longitude=$2
+                    WHERE telegram_id=$3
+                """, latitude, longitude, telegram_id)
+
+        await state.finish()
+        await message.answer('Malumot yangilandi', reply_markup=markup)
+
+
+
+
+
+
+
+@dp.message_handler(commands=['edit_staff'])
+async def edit_company(message: types.Message):
+    if message.from_user.id not in MANAGER_IDS:
+        markup = await main_menu_button()
+        return await message.answer("Siz menejer emassiz.", reply_markup=markup)
+    else:
+        await message.answer('Telegram id kiriting', reply_markup=cancelbutton())
+        await EditStaffState.user_id.set()
+
+
+@dp.message_handler(state=EditStaffState.user_id)
+async def get_userid_edit(message: types.Message, state: FSMContext):
+    markup = await main_menu_button()
+    if message.text == '❌ Bekor qilish' or message.text == '/start':
+
+        await message.answer('❌ Bekor qilindi', reply_markup=markup)
+        await state.finish()
+    else:
+        telegram_id = message.text
+
+        if not telegram_id.isdigit():
+            await message.answer("❌ Telegram id xato. Qayta kiriting (faqat raqam, 7-15 raqam):",
+                                 reply_markup=markup)
+            await state.finish()
+            return
+        else:
+            company = await get_staff_by_telegram_id(int(telegram_id))
+            if not company:
+                await message.answer("❌ Staff topilmadi", reply_markup=markup)
+                await state.finish()
+                return
+            await state.update_data(telegram_id=int(telegram_id))
+            await message.answer('Tanlang', reply_markup=edit_company_button())
+            await EditStaffState.change.set()
+
+
+@dp.callback_query_handler(state=EditStaffState.change)
+async def get_change_edit(callback: types.CallbackQuery, state: FSMContext):
+    data = callback.data
+    chatid = callback.message.chat.id
+    if data == 'name':
+        await EditStaffState.name.set()
+        text = 'Staff nomini kiriting'
+    elif data == 'phone':
+        await EditStaffState.phone.set()
+        text = 'Telefon raqam kiriting'
+    elif data == 'location':
+        await EditStaffState.location.set()
+        text = 'Lokatsiya jonatish kiriting'
+    elif data == 'telegram_id':
+        await EditStaffState.telegram_id.set()
+        text = 'Telegram id kiriting'
+    else:
+        text = 'Buyruq mavjud emas'
+    await bot.send_message(chat_id=chatid, text=text, reply_markup=cancelbutton())
+
+
+@dp.message_handler(state=EditStaffState.name)
+async def get_name_edit(message: types.Message, state: FSMContext):
+    markup = await main_menu_button()
+    if message.text == '❌ Bekor qilish' or message.text == '/start':
+
+        await message.answer('❌ Bekor qilindi', reply_markup=markup)
+        await state.finish()
+    else:
+        data = await state.get_data()
+        telegram_id = data['telegram_id']
+        async with db.pool.acquire() as conn:
+                await conn.execute("""
+                    UPDATE staff 
+                    SET name=$1
+                    WHERE telegram_id=$2
+                """, message.text, telegram_id)
+        await state.finish()
+        await message.answer('Malumot yangilandi', reply_markup=markup)
+
+
+@dp.message_handler(state=EditStaffState.phone)
+async def get_phone_edit(message: types.Message, state: FSMContext):
+    markup = await main_menu_button()
+    if message.text == '❌ Bekor qilish' or message.text == '/start':
+        await message.answer('❌ Bekor qilindi', reply_markup=markup)
+        await state.finish()
+    else:
+        data = await state.get_data()
+        telegram_id = data['telegram_id']
+        async with db.pool.acquire() as conn:
+            await conn.execute("""
+                    UPDATE staff 
+                    SET phone=$1
+                    WHERE telegram_id=$2
+                """, message.text, telegram_id)
+        await state.finish()
+        await message.answer('Malumot yangilandi', reply_markup=markup)
+
+@dp.message_handler(state=EditStaffState.telegram_id)
+async def get_telegramid_edit(message: types.Message, state: FSMContext):
+    markup = await main_menu_button()
+    if message.text == '❌ Bekor qilish' or message.text == '/start':
+        await message.answer('❌ Bekor qilindi', reply_markup=markup)
+        await state.finish()
+        return
+    else:
+        data = await state.get_data()
+        telegram_id = data['telegram_id']
+        if message.text.isdigit():
+            newtgid= int(message.text)
+        else:
+            await message.answer('Telgram id xato', reply_markup=markup)
+            await state.finish()
+            return
+        async with db.pool.acquire() as conn:
+            await conn.execute("""
+                    UPDATE staff 
+                    SET telegram_id=$1
+                    WHERE telegram_id=$2
+                """, newtgid, telegram_id)
+        await state.finish()
+        await message.answer('Malumot yangilandi', reply_markup=markup)
+
+@dp.message_handler(content_types='location', state=EditStaffState.location)
+async def get_location_edit(message: types.Message, state: FSMContext):
+    markup = await main_menu_button()
+    if message.text == '❌ Bekor qilish' or message.text == '/start':
+        await message.answer('❌ Bekor qilindi', reply_markup=markup)
+        await state.finish()
+    else:
+        data = await state.get_data()
+        telegram_id = data['telegram_id']
+        latitude = message.location.latitude
+        longitude = message.location.longitude
+        async with db.pool.acquire() as conn:
+            await conn.execute("""
+                    UPDATE staff 
+                    SET latitude=$1,longitude=$2
+                    WHERE telegram_id=$3
+                """, latitude, longitude, telegram_id)
+        await state.finish()
+        await message.answer('Malumot yangilandi', reply_markup=markup)

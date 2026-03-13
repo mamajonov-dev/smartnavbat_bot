@@ -1,8 +1,6 @@
 
 import db
-import asyncio
-from datetime import datetime
-from aiogram import types
+
 from zoneinfo import ZoneInfo
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from loader import bot
@@ -180,3 +178,109 @@ async def set_default_commands(dp):
 #
 #     # Har bir barberga alohida komandalarni set qilish
 #
+
+import asyncio
+from datetime import datetime
+
+async def subscription_reminder_loop_staff(bot):
+    remind_days = {
+        10: "notified_10_days",
+        7: "notified_7_days",
+        5: "notified_5_days",
+        3: "notified_3_days",
+    }
+
+    while True:
+        try:
+            now = datetime.now(db.TZ)
+
+            async with db.pool.acquire() as conn:
+                staffs = await conn.fetch("""
+                    SELECT id, name, telegram_id, subscription_until,
+                           notified_10_days, notified_7_days,
+                           notified_5_days, notified_3_days
+                    FROM staff
+                    WHERE subscription_until IS NOT NULL AND  company_id IS NULL
+                """)
+
+                for staff in staffs:
+                    if not staff["telegram_id"]:
+                        continue
+
+                    days_left = (staff["subscription_until"].date() - now.date()).days
+
+                    if days_left in remind_days:
+                        flag = remind_days[days_left]
+
+                        if not staff[flag]:
+                            try:
+                                await bot.send_message(
+                                    staff["telegram_id"],
+                                    f"📢 Hurmatli {staff['name']},\n\n"
+                                    f"Obunangiz tugashiga {days_left} kun qoldi.\n"
+                                    f"Obuna muddati: {staff['subscription_until'].date()}"
+                                )
+
+                                await conn.execute(
+                                    f"UPDATE staff SET {flag}=TRUE WHERE id=$1",
+                                    staff["id"]
+                                )
+                            except Exception:
+                                pass
+
+        except Exception as e:
+            print("subscription reminder error:", e)
+
+        await asyncio.sleep(86400)
+
+
+async def subscription_reminder_loop_company(bot):
+    remind_days = {
+        10: "notified_10_days",
+        7: "notified_7_days",
+        5: "notified_5_days",
+        3: "notified_3_days",
+    }
+
+    while True:
+        try:
+            now = datetime.now(db.TZ)
+
+            async with db.pool.acquire() as conn:
+                staffs = await conn.fetch("""
+                    SELECT id, name, telegram_id, subscription_until,
+                           notified_10_days, notified_7_days,
+                           notified_5_days, notified_3_days
+                    FROM companies
+                    WHERE subscription_until IS NOT NULL
+                """)
+
+                for staff in staffs:
+                    if not staff["telegram_id"]:
+                        continue
+
+                    days_left = (staff["subscription_until"].date() - now.date()).days
+
+                    if days_left in remind_days:
+                        flag = remind_days[days_left]
+
+                        if not staff[flag]:
+                            try:
+                                await bot.send_message(
+                                    staff["telegram_id"],
+                                    f"📢 Hurmatli {staff['name']},\n\n"
+                                    f"Obunangiz tugashiga {days_left} kun qoldi.\n"
+                                    f"Obuna muddati: {staff['subscription_until'].date()}"
+                                )
+
+                                await conn.execute(
+                                    f"UPDATE companies SET {flag}=TRUE WHERE id=$1",
+                                    staff["id"]
+                                )
+                            except Exception:
+                                pass
+
+        except Exception as e:
+            print("subscription reminder error:", e)
+
+        await asyncio.sleep(86400)
