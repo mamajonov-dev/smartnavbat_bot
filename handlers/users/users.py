@@ -575,3 +575,9 @@ async def search_barber_process(message: Message, state: FSMContext):
             await message.answer("Topilgan xodimlar 👇", reply_markup=kb)
             await message.answer('Xodimni tanlang', reply_markup=main_markup)
             await state.finish()
+
+@dp.message_handler(text="📞 Hamkorlik uchun aloqa")
+async def sendcall(message: Message):
+    text = (f"Aloqa uchun telefon:\n\n"
+            f"📞 +998917871199 @NurmuhammadMamajonov\n")
+    await message.answer(text)

@@ -11,7 +11,8 @@ async def main_menu_button():
         KeyboardButton("🔎 Qidirish")
     )
     kb.add(
-        KeyboardButton("📋 Buyurtmalarim")
+        KeyboardButton("📋 Buyurtmalarim"),
+        KeyboardButton("📞 Hamkorlik uchun aloqa"),
     )
     return kb
 
