@@ -6,15 +6,21 @@ from datetime import datetime, time, timedelta
 from keyboards.default.asosiymenu import main_menu_button, cancelbutton, location_button
 from keyboards.inline.inline_keyboards import (confirm_button, services_inline_button,
                                                companies_inline_button, staff_inline_button,
-                                               edit_company_button)
+                                               edit_company_button,
+                                               regions_keyboard,
+                                               districts_keyboard)
 
 from loader import bot, dp
-from functions.admin_functions import add_service_function, get_all_company_function, get_all_staffs_function
+from functions.admin_functions import (add_service_function,
+                                       get_all_company_function,
+                                       get_all_staffs_function,
+                                       add_region_function,
+                                       add_destrict_function)
 from functions.functions import get_staff_by__id, get_comapny_by__id, get_company_by_telegram_id,get_staff_by_telegram_id
 
 from states.states import (
     AddServiceState, AddCompanyState,
-    AddClientState, SubscriptionState, EditCompanyState, EditStaffState)
+    AddClientState, SubscriptionState, EditCompanyState, EditStaffState, AddRegionState, AddDistrictState)
 from data.config import MANAGER_IDS
 import db
 
@@ -305,6 +311,7 @@ async def add_client_company(callback: CallbackQuery, state: FSMContext):
     chatid = callback.message.chat.id
     await bot.send_message(chat_id=chatid, text='Tasdiqlaysizmi?', reply_markup=confirm_button())
     await AddClientState.confirm.set()
+    await AddClientState.confirm.set()
 
 
 @dp.callback_query_handler(state=AddClientState.confirm)
@@ -534,7 +541,6 @@ async def edit_company(message: types.Message):
 async def get_userid_edit(message: types.Message, state: FSMContext):
     markup = await main_menu_button()
     if message.text == '❌ Bekor qilish' or message.text == '/start':
-
         await message.answer('❌ Bekor qilindi', reply_markup=markup)
         await state.finish()
     else:
@@ -560,6 +566,7 @@ async def get_userid_edit(message: types.Message, state: FSMContext):
 async def get_change_edit(callback: types.CallbackQuery, state: FSMContext):
     data = callback.data
     chatid = callback.message.chat.id
+    markup = cancelbutton()
     if data == 'name':
         await EditCompanyState.name.set()
         text = 'Kompaniya nomini kiriting'
@@ -572,16 +579,54 @@ async def get_change_edit(callback: types.CallbackQuery, state: FSMContext):
     elif data == 'telegram_id':
         await EditCompanyState.telegram_id.set()
         text = 'Telegram id kiriting'
+    elif data == 'region':
+        await EditCompanyState.region.set()
+        text = 'Viloyat tanlang'
+        regions = await db.get_regions()
+        markup =  regions_keyboard(regions)
     else:
         text = 'Buyruq mavjud emas'
-    await bot.send_message(chat_id=chatid, text=text, reply_markup=cancelbutton())
+    await bot.send_message(chat_id=chatid, text=text, reply_markup=markup)
 
+
+@dp.callback_query_handler(state=EditCompanyState.region)
+async def get_region_edit(callback: types.CallbackQuery, state: FSMContext):
+    markup = await main_menu_button()
+    if 'back' in callback.data:
+        await callback.message.answer('❌ Bekor qilindi', reply_markup=markup)
+        await state.finish()
+    else:
+        region_id = int(callback.data.split('_')[1])
+        await state.update_data(region_id= region_id)
+        districts = await db.get_districts_by_region(region_id)
+        markup =  districts_keyboard(districts)
+        await callback.message.answer("Tuman tanlang", reply_markup=markup)
+        await EditCompanyState.district.set()
+
+@dp.callback_query_handler(state=EditCompanyState.district)
+async def get_district_edit(callback: types.CallbackQuery, state: FSMContext):
+    markup = await main_menu_button()
+    if 'back' in callback.data:
+        await callback.message.answer('❌ Bekor qilindi', reply_markup=markup)
+        await state.finish()
+    else:
+        data = await state.get_data()
+        region_id = data['region_id']
+        telegram_id = data['telegram_id']
+        district_id = int(callback.data.split(':')[1])
+        async with db.pool.acquire() as conn:
+                await conn.execute("""
+                    UPDATE companies 
+                    SET region_id=$1, district_id=$2
+                    WHERE telegram_id=$3
+                """, region_id, district_id, telegram_id)
+        await state.finish()
+        await callback.message.answer('Malumot yangilandi', reply_markup=markup)
 
 @dp.message_handler(state=EditCompanyState.name)
 async def get_name_edit(message: types.Message, state: FSMContext):
     markup = await main_menu_button()
     if message.text == '❌ Bekor qilish' or message.text == '/start':
-
         await message.answer('❌ Bekor qilindi', reply_markup=markup)
         await state.finish()
     else:
@@ -682,8 +727,6 @@ async def get_location_edit(message: types.Message, state: FSMContext):
 
 
 
-
-
 @dp.message_handler(commands=['edit_staff'])
 async def edit_company(message: types.Message):
     if message.from_user.id not in MANAGER_IDS:
@@ -724,6 +767,7 @@ async def get_userid_edit(message: types.Message, state: FSMContext):
 async def get_change_edit(callback: types.CallbackQuery, state: FSMContext):
     data = callback.data
     chatid = callback.message.chat.id
+    markup = cancelbutton()
     if data == 'name':
         await EditStaffState.name.set()
         text = 'Staff nomini kiriting'
@@ -736,9 +780,49 @@ async def get_change_edit(callback: types.CallbackQuery, state: FSMContext):
     elif data == 'telegram_id':
         await EditStaffState.telegram_id.set()
         text = 'Telegram id kiriting'
+    elif data == 'region':
+        await EditStaffState.region.set()
+        text = 'Viloyat tanlang'
+        regions = await db.get_regions()
+        markup = regions_keyboard(regions)
     else:
         text = 'Buyruq mavjud emas'
-    await bot.send_message(chat_id=chatid, text=text, reply_markup=cancelbutton())
+    await bot.send_message(chat_id=chatid, text=text, reply_markup=markup)
+
+@dp.callback_query_handler(state=EditStaffState.region)
+async def get_staffrgion_edit(callback: types.CallbackQuery, state: FSMContext):
+    markup = await main_menu_button()
+    if 'back' in callback.data:
+        await callback.message.answer('❌ Bekor qilindi', reply_markup=markup)
+        await state.finish()
+    else:
+        region_id = int(callback.data.split(':')[1])
+        await state.update_data(region_id= region_id)
+        districts = await db.get_districts_by_region(region_id)
+        markup = districts_keyboard(districts)
+        await callback.message.answer("Tuman tanlang", reply_markup=markup)
+        await EditStaffState.district.set()
+
+@dp.callback_query_handler(state=EditStaffState.district)
+async def get_staffdistrict_edit(callback: types.CallbackQuery, state: FSMContext):
+    markup = await main_menu_button()
+    if 'back' in callback.data:
+        await callback.message.answer('❌ Bekor qilindi', reply_markup=markup)
+        await state.finish()
+    else:
+        data = await state.get_data()
+        region_id = data['region_id']
+        telegram_id = data['telegram_id']
+        district_id = int(callback.data.split(':')[1])
+        async with db.pool.acquire() as conn:
+                await conn.execute("""
+                    UPDATE staff 
+                    SET region_id=$1, district_id=$2
+                    WHERE telegram_id=$3
+                """, region_id, district_id, telegram_id)
+        await state.finish()
+        await callback.message.answer('Malumot yangilandi', reply_markup=markup)
+
 
 
 @dp.message_handler(state=EditStaffState.name)
@@ -916,3 +1000,56 @@ async def get_users(message:Message):
 
             if text:
                 await message.answer(text)
+
+@dp.message_handler(commands='add_region')
+async def adddregion(message: Message):
+    await message.answer('Viloyat nomini kiriting', reply_markup=cancelbutton())
+    await AddRegionState.name.set()
+
+
+@dp.message_handler(state=AddRegionState.name)
+async def adddregion(message: Message, state: FSMContext):
+    markup = await main_menu_button()
+    if message.text == '❌ Bekor qilish' or message.text == '/start':
+        await message.answer('❌ Bekor qilindi', reply_markup=markup)
+        await state.finish()
+    else:
+        name = message.text
+        await add_region_function(name)
+        await state.finish()
+        await message.answer('Viloyat saqlandi', reply_markup=markup)
+
+
+@dp.message_handler(commands='add_district')
+async def adddistrict(message: Message):
+    regions  = await db.get_regions()
+    await message.answer('Viloyatni tanlang', reply_markup=regions_keyboard(regions))
+    await AddDistrictState.region.set()
+
+@dp.callback_query_handler(state=AddDistrictState.region)
+async def getregionid(callback: CallbackQuery, state: FSMContext):
+    markup = await main_menu_button()
+    if 'back' in callback.data:
+        await callback.message.answer('❌ Bekor qilindi', reply_markup=markup)
+        await state.finish()
+    else:
+        region_id = callback.data.split(':')[1]
+        await state.update_data(region_id=int(region_id))
+        await callback.message.answer('Tuman nomini kiriting', reply_markup=cancelbutton())
+        await AddDistrictState.name.set()
+@dp.message_handler(state=AddDistrictState.name)
+async def addnamedistrict(message: Message, state: FSMContext):
+    markup = await main_menu_button()
+    if message.text == '❌ Bekor qilish' or message.text == '/start':
+        await message.answer('❌ Bekor qilindi', reply_markup=markup)
+        await state.finish()
+    else:
+        name = message.text
+        data = await state.get_data()
+        region_id = data['region_id']
+        await add_destrict_function(region_id=region_id,name=name)
+        await state.finish()
+        await message.answer('Tuman saqlandi', reply_markup=markup)
+
+
+

@@ -9,7 +9,7 @@ def confirm_button():
     )
     return markup
 
-async def services_inline_button():
+async def services_inline_button(district_id):
     async with db.pool.acquire() as conn:
         services = await conn.fetch("""
             SELECT id, name, has_business FROM services
@@ -18,15 +18,15 @@ async def services_inline_button():
     markup = InlineKeyboardMarkup()
     for service in services:
         markup.add(
-            InlineKeyboardButton(f'{service[1]}', callback_data=f'service_{service[0]}_{service[2]}')
+            InlineKeyboardButton(f'{service[1]}', callback_data=f'service_{service[0]}_{service[2]}_{district_id}')
         )
     return markup
 
-async def companies_inline_button(service_id):
+async def companies_inline_button(service_id, district_id):
     async with db.pool.acquire() as conn:
         companies = await conn.fetch("""
-            SELECT id, name  FROM companies WHERE service_id=$1
-        """, service_id)
+            SELECT id, name  FROM companies WHERE service_id=$1 AND district_id=$2
+        """, service_id, district_id)
     markup = InlineKeyboardMarkup()
     for company in companies:
         markup.add(
@@ -38,7 +38,7 @@ async def companies_inline_button(service_id):
 
     return markup
 
-async def staff_inline_button(company_id=None, service_id=None):
+async def staff_inline_button(district_id=None, company_id=None, service_id=None):
     if company_id:
         async with db.pool.acquire() as conn:
             staffs = await conn.fetch("""
@@ -47,8 +47,8 @@ async def staff_inline_button(company_id=None, service_id=None):
     else:
         async with db.pool.acquire() as conn:
             staffs = await conn.fetch("""
-                SELECT company_id, id, name   FROM staff WHERE service_id=$1
-            """, service_id)
+                SELECT company_id, id, name   FROM staff WHERE service_id=$1 AND district_id=$2
+            """, service_id, district_id)
     markup = InlineKeyboardMarkup()
     for staff in staffs:
         markup.add(
@@ -81,6 +81,46 @@ def edit_company_button():
         InlineKeyboardButton(text='Location', callback_data='location'),
         InlineKeyboardButton(text='Telegram id', callback_data='telegram_id'),
         InlineKeyboardButton(text='Telefon', callback_data='phone'),
+        InlineKeyboardButton(text='Viloyat', callback_data='region'),
+
     )
     return markup
 
+
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+def regions_keyboard(regions):
+    kb = InlineKeyboardMarkup(row_width=2)
+    for region in regions:
+        kb.insert(
+            InlineKeyboardButton(
+                text=region["name_uz"],
+                callback_data=f"region:{region['id']}"
+            )
+        )
+
+    return kb
+
+def districts_keyboard(districts):
+    kb = InlineKeyboardMarkup(row_width=2)
+    for district in districts:
+        kb.insert(
+            InlineKeyboardButton(
+                text=district["name_uz"],
+                callback_data=f"district:{district['id']}"
+            )
+        )
+    kb.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="district:back_to_regions"))
+    return kb
+
+def companies_keyboard(companies):
+    kb = InlineKeyboardMarkup(row_width=1)
+    for company in companies:
+        kb.add(
+            InlineKeyboardButton(
+                text=company["name"],
+                callback_data=f"company:{company['id']}"
+            )
+        )
+    kb.add(InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_districts"))
+    return kb

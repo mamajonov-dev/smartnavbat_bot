@@ -1,15 +1,13 @@
 from aiogram import types
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from aiogram.dispatcher.filters.builtin import CommandStart
+
 from aiogram.dispatcher import FSMContext
 from keyboards.default.asosiymenu import *
-from keyboards.inline.inline_keyboards import services_inline_button
+from keyboards.inline.inline_keyboards import services_inline_button, staff_inline_button
 from states.states import BookingInfoState
+
 from loader import dp
 from zoneinfo import ZoneInfo
-import asyncio
-import sys
-from functions.functions import get_available_slots, check_subscription, get_staff_by_telegram_id
+
 TZ = ZoneInfo("Asia/Tashkent")
 from functions.functions import *
 import db
@@ -17,6 +15,7 @@ import db
 @dp.message_handler(commands='start')
 async def start_handler(message: types.Message, state: FSMContext):
     args = message.get_args()
+
     # 🔹 USER DB ga yozib qo‘yish (agar kerak bo‘lsa)
     async with db.pool.acquire() as conn:
         await conn.execute("""
@@ -30,11 +29,23 @@ async def start_handler(message: types.Message, state: FSMContext):
     # =====================================
     if args:
         staff = await get_staff_by_telegram_id(int(args))
+        company = await get_company_by_telegram_id(int(args))
         if not staff:
             return await message.answer("Xizmat ko\'rsatuvchi topilmadi.")
         status_check = await check_subscription(staff_id=staff['id'])
         if not status_check:
-           await message.answer("Xizmat ko\'rsatuvchi obunasi tugagan.")
+            return await message.answer("Xizmat ko\'rsatuvchi obunasi tugagan.")
+        if company:
+            # await BookingInfoState.staff.set()
+            markup = await staff_inline_button(company_id=company['id'])
+            await message.answer(
+                f"Xizmat ko\'rsatuvchi tashkilot: <b>{company['name']}</b>\nBugungi yozilish. Buyruqni tanlang",
+                reply_markup=markup
+            )
+            await state.update_data(company_id=company['id'])
+            await state.update_data(latitude=company['latitude'])
+            await state.update_data(longitude=company['longitude'])
+            await state.update_data(telegram_id=company['telegram_id'])
         else:
             await state.update_data(staff_id=staff['id'])
             await state.update_data(company_id=staff['company_id'])
@@ -42,8 +53,7 @@ async def start_handler(message: types.Message, state: FSMContext):
             await state.update_data(longitude=staff['longitude'])
             await state.update_data(telegram_id=staff['telegram_id'])
 
-            await BookingInfoState.staff.set()
-
+            await BookingInfoState.day.set()
             await message.answer(
                 f"Xizmat ko\'rsatuvchi: <b>{staff['name']}</b>\nBugungi yozilish. Buyruqni tanlang",
                 reply_markup=main_menu_inline(staff['id'])

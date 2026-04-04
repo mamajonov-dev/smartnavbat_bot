@@ -121,7 +121,13 @@ async def help_command(message: types.Message):
 
         ➕ /add_staff  
         Yangi hodim qo‘shish
-
+        
+        ➕ /add_region
+        Yangi viloyat qo‘shish
+        
+        ➕ /add_district  
+        Yangi tuman qo‘shish
+        
         🏢 /add_company  
         Yangi tashkilot qo‘shish
 

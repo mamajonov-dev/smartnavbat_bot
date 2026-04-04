@@ -15,6 +15,7 @@ from states.states import *
 from data.config import *
 from keyboards.default.asosiymenu import *
 
+
 @dp.message_handler(commands=['staff'])
 async def barber_panel_menu(message: Message):
     staff = await get_staff_by_telegram_id(message.from_user.id)
@@ -63,6 +64,7 @@ async def create_referal_link(message: Message):
     if staff:
         link = f"https://t.me/smartnavbat_bot?start={message.chat.id}"
         await message.answer(f'🔗 Sizning Referal havolangiz: \n\n\n{link}')
+
 
 # 2️⃣ Message handler - reply keyboarddan tanlash
 # ==============================================
@@ -171,7 +173,6 @@ async def save_start_work_time(message: types.Message, state: FSMContext):
         await state.finish()
         return
     else:
-
         try:
             hour, minute = map(int, message.text.strip().split(":"))
             if not (0 <= hour < 24 and 0 <= minute < 60):
@@ -194,6 +195,7 @@ async def save_start_work_time(message: types.Message, state: FSMContext):
 
 
 from datetime import datetime, time
+
 
 @dp.message_handler(state=EditTimeState.end)
 async def save_end_work_time(message: types.Message, state: FSMContext):
@@ -234,20 +236,28 @@ async def save_end_work_time(message: types.Message, state: FSMContext):
 
         # ✅ Barberni olish
         staff = await get_staff_by_telegram_id(message.from_user.id)
-        print(staff)
+        company = await get_company_by_telegram_id(message.from_user.id)
+
         if not staff:
             await message.answer("❌ Xodim topilmadi.", reply_markup=staff_menu_button())
             await state.finish()
             return
-
-        # ✅ DB ga saqlash
-        async with db.pool.acquire() as conn:
-            await conn.execute("""
-                UPDATE staff
-                SET work_start=$1, work_end=$2
-                WHERE id=$3
-            """, start_time, end_time, staff["id"])
-
+        else:
+            # ✅ DB ga saqlash
+            async with db.pool.acquire() as conn:
+                await conn.execute("""
+                        UPDATE staff
+                        SET work_start=$1, work_end=$2
+                        WHERE telegram_id=$3
+                    """, start_time, end_time, message.from_user.id)
+        if company:
+            # ✅ DB ga saqlash
+            async with db.pool.acquire() as conn:
+                await conn.execute("""
+                            UPDATE companies
+                            SET work_start=$1, work_end=$2
+                            WHERE telegram_id=$3
+                        """, start_time, end_time, message.from_user.id)
         await message.answer("Ish vaqti yangilandi ✅", reply_markup=staff_menu_button())
         await state.finish()
 
@@ -309,24 +319,24 @@ async def toggle_tomorrow(callback: types.CallbackQuery):
                     WHERE company_id=$2
                 """, new_value, staff["company_id"])
         # async with db.pool.acquire() as conn:
-            # closed = await conn.fetchval("""
-            #     SELECT tomorrow_closed
-            #     FROM companies
-            #     WHERE id=$1
-            # """, staff["company_id"])
-            #
-            # new_value = not closed
-            #
-            # await conn.execute("""
-            #     UPDATE companies
-            #     SET tomorrow_closed=$1
-            #     WHERE id=$2
-            # """, new_value, staff["company_id"])
-            # await conn.execute("""
-            #     UPDATE staff
-            #     SET tomorrow_closed=$1
-            #      WHERE company_id=$2
-            #     """, new_value, staff["company_id"])
+        # closed = await conn.fetchval("""
+        #     SELECT tomorrow_closed
+        #     FROM companies
+        #     WHERE id=$1
+        # """, staff["company_id"])
+        #
+        # new_value = not closed
+        #
+        # await conn.execute("""
+        #     UPDATE companies
+        #     SET tomorrow_closed=$1
+        #     WHERE id=$2
+        # """, new_value, staff["company_id"])
+        # await conn.execute("""
+        #     UPDATE staff
+        #     SET tomorrow_closed=$1
+        #      WHERE company_id=$2
+        #     """, new_value, staff["company_id"])
 
     else:
         async with db.pool.acquire() as conn:
@@ -372,12 +382,10 @@ async def toggle_tomorrow(callback: types.CallbackQuery):
     # await callback.message.edit_reply_markup(reply_markup=kb)
 
 
-
 # @dp.message_handler(text='✂️ Barberlar')
 # async def barbers(message: Message):
 #     await message.answer("Lokatsiyangizni jo\'nating", reply_markup=location_button())
 #     await LocationState.location.set()
-
 
 
 @dp.message_handler(state=LocationState.location, content_types=['location'])
@@ -435,7 +443,10 @@ async def getlocation(message: Message, state: FSMContext):
             await message.answer('Buyruqlarni birini tanlang', reply_markup=location_button())
             await LocationState.location.set()
 
+
 from keyboards.inline.inline_keyboards import offline_slots_keyboard
+
+
 @dp.message_handler(text="➕ Offline mijoz qo‘shish")
 async def add_offline_client(message: types.Message):
     staff = await get_staff_by_telegram_id(message.from_user.id)
@@ -445,12 +456,14 @@ async def add_offline_client(message: types.Message):
     kb = await offline_slots_keyboard(staff, message.chat.id, 'today')
 
     await message.answer("Band qilinadigan vaqtni tanlang:", reply_markup=kb)
+
+
 @dp.callback_query_handler(lambda c: c.data.startswith("offline_slot_"))
 async def offline_slot_book(callback: types.CallbackQuery):
     staff = await get_staff_by_telegram_id(callback.from_user.id)
     if not staff:
         return await callback.answer("Siz staff emassiz", show_alert=True)
-    slot_str = callback.data.split("_", 2)[2]   # masalan 14:30
+    slot_str = callback.data.split("_", 2)[2]  # masalan 14:30
     today = datetime.now(TZ).date()
     hour, minute = map(int, slot_str.split(":"))
     slot_time = datetime(today.year, today.month, today.day, hour, minute, tzinfo=TZ)
@@ -473,4 +486,3 @@ async def offline_slot_book(callback: types.CallbackQuery):
         )
 
         await callback.answer('"Slot muvaffaqiyatli band qilindi"', show_alert=True)
-

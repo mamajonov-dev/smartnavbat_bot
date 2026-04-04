@@ -7,7 +7,7 @@ from data.config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 
 pool = None
 
-# DATABASE_URL = "postgresql://postgres:1234@localhost:5433/barberdb"
+DATABASE_URL = "postgresql://postgres:1234@localhost:5433/barberdb"
 
 
 # async def connect_db():
@@ -44,6 +44,41 @@ async def init_db():
         # =========================
         # Users / Foydalanuvchilar
         # =========================
+
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS regions (
+            id SERIAL PRIMARY KEY,
+            name_uz VARCHAR(100) UNIQUE NOT NULL
+        );
+        """)
+        await conn.execute("""
+       CREATE TABLE IF NOT EXISTS districts (
+        id SERIAL PRIMARY KEY,
+        region_id INT NOT NULL REFERENCES regions(id) ON DELETE CASCADE,
+        name_uz VARCHAR(100) NOT NULL,
+        UNIQUE(region_id, name_uz)
+);
+        """)
+
+
+        await conn.execute("""
+            ALTER TABLE companies
+            ADD COLUMN IF NOT EXISTS region_id INT REFERENCES regions(id) ON DELETE SET NULL;
+            
+            ALTER TABLE companies
+            ADD COLUMN IF NOT EXISTS district_id INT REFERENCES districts(id) ON DELETE SET NULL;
+        """)
+        await conn.execute("""
+            ALTER TABLE staff
+            ADD COLUMN IF NOT EXISTS region_id INT REFERENCES regions(id) ON DELETE SET NULL;
+            
+            ALTER TABLE staff
+            ADD COLUMN IF NOT EXISTS district_id INT REFERENCES districts(id) ON DELETE SET NULL;
+        """)
+
+
+
+
         await conn.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id BIGINT PRIMARY KEY,
@@ -98,9 +133,6 @@ async def init_db():
         ALTER TABLE staff ADD COLUMN IF NOT EXISTS notified_3_days BOOLEAN DEFAULT FALSE
         """)
 
-
-
-
         await conn.execute("""
         ALTER TABLE companies ADD COLUMN IF NOT EXISTS notified_10_days BOOLEAN DEFAULT FALSE
         """)
@@ -116,13 +148,6 @@ async def init_db():
         await conn.execute("""
         ALTER TABLE companies ADD COLUMN IF NOT EXISTS notified_3_days BOOLEAN DEFAULT FALSE
         """)
-
-
-
-
-
-
-
 
         # =========================
         # Companies / Bizneslar
@@ -202,7 +227,9 @@ async def init_db():
         ON bookings(staff_id, slot_time)
         WHERE status IN ('pending','confirmed');
         """)
-
+        await conn.execute("""CREATE INDEX IF NOT EXISTS idx_districts_region_id ON districts(region_id);""")
+        await conn.execute("""CREATE INDEX IF NOT EXISTS idx_companies_region_id ON companies(region_id);""")
+        await conn.execute("""CREATE INDEX IF NOT EXISTS idx_companies_district_id ON companies(district_id);""")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_bookings_staff_id ON bookings(staff_id);")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_bookings_slot_time ON bookings(slot_time);")
 
@@ -243,3 +270,44 @@ async def update_subscription(new_date, company_id=None, staff_id=None):
                     notified_3_days=FALSE 
                 WHERE id=$2
             """, new_date, staff_id)
+
+
+async def get_regions():
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT id, name_uz
+            FROM regions
+            ORDER BY name_uz
+        """)
+        return rows
+
+async def get_districts_by_region(region_id: int):
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT id, name_uz
+            FROM districts
+            WHERE region_id = $1
+            ORDER BY name_uz
+        """, region_id)
+        return rows
+
+async def get_companies_by_district(district_id: int):
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT id, name
+            FROM companies
+            WHERE district_id = $1
+            ORDER BY name
+        """, district_id)
+        return rows
+
+async def get_staff_by_district(district_id: int):
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT s.id, s.name
+            FROM staff s
+            JOIN companies c ON s.company_id = c.id
+            WHERE c.district_id = $1
+            ORDER BY s.name
+        """, district_id)
+        return rows

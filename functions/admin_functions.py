@@ -12,6 +12,20 @@ async def add_service_function(name, business):
                 VALUES ($1, $2)
                 """, name.lower(), business)
 
+async def add_region_function(name):
+    async with db.pool.acquire() as conn:
+        await conn.execute("""
+                INSERT INTO regions (name_uz) 
+                VALUES ($1)
+                """, name.lower())
+async def add_destrict_function(region_id, name):
+    async with db.pool.acquire() as conn:
+        await conn.execute("""
+                INSERT INTO districts (region_id, name_uz) 
+                VALUES ($1, $2)
+                """,region_id, name.lower())
+
+
 
 async def get_all_staffs_function():
     async with db.pool.acquire() as conn:
@@ -23,8 +37,6 @@ async def get_all_staffs_function():
             """
         )
         return staffs
-
-
 
 async def get_all_company_function():
     async with db.pool.acquire() as conn:

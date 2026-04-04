@@ -1,21 +1,26 @@
 from aiogram import types
 from aiogram.types import (
     Message, CallbackQuery,
-    KeyboardButton, ReplyKeyboardMarkup,
+
     InlineKeyboardMarkup, InlineKeyboardButton)
-from aiogram.utils import executor
-from aiogram.contrib.fsm_storage.memory import MemoryStorage
+
 from aiogram.dispatcher import FSMContext
-from aiogram.dispatcher.filters.state import State, StatesGroup
-from datetime import datetime
+
 from typing import Union
 from loader import bot, dp
 from functions.functions import *
 from functions.statistics import *
 from states.states import *
-from data.config import *
+
 from keyboards.default.asosiymenu import main_menu_button, main_menu_inline, cancelbutton, search_barber_button
-from keyboards.inline.inline_keyboards import services_inline_button, companies_inline_button, staff_inline_button
+from keyboards.inline.inline_keyboards import (services_inline_button,
+                                               companies_inline_button,
+                                               staff_inline_button, confirm_button,
+                                               companies_keyboard,
+                                               districts_keyboard,
+                                               regions_keyboard)
+
+from db import get_regions, get_districts_by_region, get_staff_by_district, get_companies_by_district
 
 
 @dp.message_handler(lambda m: m.text == "📋 Buyurtmalarim")
@@ -65,21 +70,64 @@ async def back_to_main_menu(callback: CallbackQuery):
 
 @dp.message_handler(text='📝 Navbatga yozilish')
 async def show_services(message: Message):
-    servive_button = await services_inline_button()
-    await message.answer('📋 Iltimos, xizmat turini tanlang', reply_markup=servive_button)
+    markup = await main_menu_button()
+    regions = await get_regions()
+    if not regions:
+        await message.answer("Viloyatlar topilmadi.", reply_markup=markup)
+        return
+
+    await message.answer(
+        "Viloyatni tanlang:",
+        reply_markup=regions_keyboard(regions)
+    )
+
+
+@dp.callback_query_handler(lambda c: c.data.startswith("region:"))
+async def region_selected(callback: types.CallbackQuery, state: FSMContext):
+    print(callback.data)
+    region_id = int(callback.data.split(":")[1])
+    await state.update_data(region_id=region_id)
+    districts = await get_districts_by_region(region_id)
+    if not districts:
+        await callback.message.edit_text("Bu viloyatda tumanlar topilmadi.")
+        await callback.answer()
+        return
+    await callback.message.edit_text(
+        "Tumanni tanlang:",
+        reply_markup=districts_keyboard(districts)
+    )
+    await callback.answer()
+
+
+@dp.callback_query_handler(lambda c: c.data.startswith("district:"))
+async def district_selected(callback: types.CallbackQuery, state: FSMContext):
+    if 'back_to_regions' in callback.data:
+        rgions = await get_regions()
+        markup =  regions_keyboard(rgions)
+        await callback.message.answer("Viloyat tanlang", reply_markup=markup)
+        await state.finish()
+        return
+    else:
+        district_id = int(callback.data.split(":")[1])
+        await state.update_data(district_id=district_id)
+        servive_button = await services_inline_button(district_id)
+        await callback.message.answer('📋 Iltimos, xizmat turini tanlang', reply_markup=servive_button)
+        await callback.message.delete()
 
 
 @dp.callback_query_handler(lambda c: c.data.startswith("service"))
 async def choose_service(callback: types.CallbackQuery, state: FSMContext):
+    data = await  state.get_data()
+    district_id = data['district_id']
     data = callback.data.split("_")
     service_id = int(data[1])
     has_business = data[2].lower() in ("true", "1", "yes")
     chatid = callback.message.chat.id
     if has_business:
-        markup = await companies_inline_button(service_id)
+        markup = await companies_inline_button(service_id, district_id)
         await bot.send_message(chat_id=chatid, text='🏢 Iltimos, tashkilotni tanlang', reply_markup=markup)
     else:
-        markup = await staff_inline_button(service_id=service_id)
+        markup = await staff_inline_button(service_id=service_id, district_id=district_id)
         await bot.send_message(chat_id=chatid, text='Xizmat ko\'rsatuvchini tanlang', reply_markup=markup)
     await callback.message.delete()
 
@@ -133,12 +181,11 @@ async def choose_staff(callback: CallbackQuery, state: FSMContext):
     await state.update_data(longitude=staff['longitude'])
     await state.update_data(telegram_id=staff['telegram_id'])
 
-    await BookingInfoState.staff.set()
+    await BookingInfoState.day.set()
 
 
-
-@dp.callback_query_handler(state=BookingInfoState.staff)
-@dp.message_handler(state=BookingInfoState.staff)
+@dp.callback_query_handler(state=BookingInfoState.day)
+@dp.message_handler(state=BookingInfoState.day)
 async def booking_handler(update: Union[types.CallbackQuery, types.Message], state: FSMContext):
     markup = await main_menu_button()
     if isinstance(update, types.CallbackQuery):
@@ -147,7 +194,6 @@ async def booking_handler(update: Union[types.CallbackQuery, types.Message], sta
         if data.startswith(("today_booking", "tomorrow_booking")):
             state = dp.current_state(user=update.from_user.id)
             user_data = await state.get_data()
-
 
             staff_id = user_data["staff_id"]
 
@@ -272,7 +318,7 @@ async def booking_handler(update: Union[types.CallbackQuery, types.Message], sta
             return
         else:
             await update.answer("Iltimos, buyruqni tugma orqali tanlang", reply_markup=cancelbutton())
-            await BookingInfoState.staff.set()
+            await BookingInfoState.day.set()
 
 
 # @dp.callback_query_handler(lambda c: c.data.startswith("slot_"))
@@ -552,7 +598,9 @@ async def search_barber_process(message: Message, state: FSMContext):
                 """, query
             )
         if not staffs and not companies:
-            await message.answer("""❌ Bunday ma'llumot topilmadi.\nSiz izlagan xodim topilmasa, "🔎 Qidirish" tugmasini bosing""", reply_markup=main_markup)
+            await message.answer(
+                """❌ Bunday ma'llumot topilmadi.\nSiz izlagan xodim topilmasa, "🔎 Qidirish" tugmasini bosing""",
+                reply_markup=main_markup)
             await state.finish()
         else:
             kb = InlineKeyboardMarkup(row_width=1)
@@ -575,6 +623,7 @@ async def search_barber_process(message: Message, state: FSMContext):
             await message.answer("Topilgan xodimlar 👇", reply_markup=kb)
             await message.answer('Xodimni tanlang', reply_markup=main_markup)
             await state.finish()
+
 
 @dp.message_handler(text="📞 Hamkorlik uchun aloqa")
 async def sendcall(message: Message):

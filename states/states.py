@@ -41,6 +41,7 @@ class BookingInfoState(StatesGroup):
     extra_phone = State()
     confirm_slot = State()
     barber = State()
+    day = State()
 
 class SubscriptionState(StatesGroup):
     service = State()
@@ -61,6 +62,8 @@ class EditCompanyState(StatesGroup):
     location = State()
     phone = State()
     telegram_id = State()
+    region = State()
+    district = State()
 class EditStaffState(StatesGroup):
     user_id = State()
     change = State()
@@ -69,5 +72,15 @@ class EditStaffState(StatesGroup):
     location = State()
     phone = State()
     telegram_id = State()
+    region = State()
+    district = State()
+
+class AddRegionState(StatesGroup):
+    name = State()
+
+class AddDistrictState(StatesGroup):
+    region = State()
+    name = State()
+
 
 
