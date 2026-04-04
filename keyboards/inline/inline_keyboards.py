@@ -9,7 +9,7 @@ def confirm_button():
     )
     return markup
 
-async def services_inline_button(district_id):
+async def services_inline_button():
     async with db.pool.acquire() as conn:
         services = await conn.fetch("""
             SELECT id, name, has_business FROM services
@@ -18,7 +18,7 @@ async def services_inline_button(district_id):
     markup = InlineKeyboardMarkup()
     for service in services:
         markup.add(
-            InlineKeyboardButton(f'{service[1]}', callback_data=f'service_{service[0]}_{service[2]}_{district_id}')
+            InlineKeyboardButton(f'{service[1]}', callback_data=f'service_{service[0]}_{service[2]}')
         )
     return markup
 

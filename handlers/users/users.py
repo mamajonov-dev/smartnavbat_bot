@@ -110,7 +110,7 @@ async def district_selected(callback: types.CallbackQuery, state: FSMContext):
     else:
         district_id = int(callback.data.split(":")[1])
         await state.update_data(district_id=district_id)
-        servive_button = await services_inline_button(district_id)
+        servive_button = await services_inline_button()
         await callback.message.answer('📋 Iltimos, xizmat turini tanlang', reply_markup=servive_button)
         await callback.message.delete()
 
