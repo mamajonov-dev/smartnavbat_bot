@@ -16,7 +16,8 @@ from functions.admin_functions import (add_service_function,
                                        get_all_staffs_function,
                                        add_region_function,
                                        add_destrict_function)
-from functions.functions import get_staff_by__id, get_comapny_by__id, get_company_by_telegram_id,get_staff_by_telegram_id
+from functions.functions import get_staff_by__id, get_comapny_by__id, get_company_by_telegram_id, \
+    get_staff_by_telegram_id
 
 from states.states import (
     AddServiceState, AddCompanyState,
@@ -266,7 +267,14 @@ async def add_client_time(message: types.Message, state: FSMContext):
         await message.answer('❌ Bekor qilindi', reply_markup=markup)
         await state.finish()
     else:
-        start, end = message.text.split('-')
+        splittime = message.text.split('-')
+        if len(splittime) == 2:
+            start, end = splittime
+        else:
+            await message.answer(
+                "❌ Vaqt noto‘g‘ri formatda. Iltimos HH:MM-HH:MM ko‘rinishida kiriting (masalan 09:00-20:00).",
+                reply_markup=cancelbutton())
+            return
         try:
             s_hour, s_minute = map(int, start.strip().split(":"))
             e_hour, e_minute = map(int, end.strip().split(":"))
@@ -276,7 +284,7 @@ async def add_client_time(message: types.Message, state: FSMContext):
             end_time = time(e_hour, e_minute)
         except ValueError:
             await message.answer(
-                "❌ Vaqt noto‘g‘ri formatda. Iltimos HH:MM-HH:MM ko‘rinishida kiriting (masalan 09:00).",
+                "❌ Vaqt noto‘g‘ri formatda. Iltimos HH:MM-HH:MM ko‘rinishida kiriting (masalan 09:00-20:00).",
                 reply_markup=cancelbutton())
             return
         await state.update_data(work_start=start_time)
@@ -583,7 +591,7 @@ async def get_change_edit(callback: types.CallbackQuery, state: FSMContext):
         await EditCompanyState.region.set()
         text = 'Viloyat tanlang'
         regions = await db.get_regions()
-        markup =  regions_keyboard(regions)
+        markup = regions_keyboard(regions)
     else:
         text = 'Buyruq mavjud emas'
     await bot.send_message(chat_id=chatid, text=text, reply_markup=markup)
@@ -597,11 +605,12 @@ async def get_region_edit(callback: types.CallbackQuery, state: FSMContext):
         await state.finish()
     else:
         region_id = int(callback.data.split(':')[1])
-        await state.update_data(region_id= region_id)
+        await state.update_data(region_id=region_id)
         districts = await db.get_districts_by_region(region_id)
-        markup =  districts_keyboard(districts)
+        markup = districts_keyboard(districts)
         await callback.message.answer("Tuman tanlang", reply_markup=markup)
         await EditCompanyState.district.set()
+
 
 @dp.callback_query_handler(state=EditCompanyState.district)
 async def get_district_edit(callback: types.CallbackQuery, state: FSMContext):
@@ -615,13 +624,14 @@ async def get_district_edit(callback: types.CallbackQuery, state: FSMContext):
         telegram_id = data['telegram_id']
         district_id = int(callback.data.split(':')[1])
         async with db.pool.acquire() as conn:
-                await conn.execute("""
+            await conn.execute("""
                     UPDATE companies 
                     SET region_id=$1, district_id=$2
                     WHERE telegram_id=$3
                 """, region_id, district_id, telegram_id)
         await state.finish()
         await callback.message.answer('Malumot yangilandi', reply_markup=markup)
+
 
 @dp.message_handler(state=EditCompanyState.name)
 async def get_name_edit(message: types.Message, state: FSMContext):
@@ -633,7 +643,7 @@ async def get_name_edit(message: types.Message, state: FSMContext):
         data = await state.get_data()
         telegram_id = data['telegram_id']
         async with db.pool.acquire() as conn:
-                await conn.execute("""
+            await conn.execute("""
                     UPDATE companies 
                     SET name=$1
                     WHERE telegram_id=$2
@@ -666,6 +676,7 @@ async def get_phone_edit(message: types.Message, state: FSMContext):
         await state.finish()
         await message.answer('Malumot yangilandi', reply_markup=markup)
 
+
 @dp.message_handler(state=EditCompanyState.telegram_id)
 async def get_telegramid_edit(message: types.Message, state: FSMContext):
     markup = await main_menu_button()
@@ -677,7 +688,7 @@ async def get_telegramid_edit(message: types.Message, state: FSMContext):
         data = await state.get_data()
         telegram_id = data['telegram_id']
         if message.text.isdigit():
-            newtgid= int(message.text)
+            newtgid = int(message.text)
         else:
             await message.answer('Telgram id xato', reply_markup=markup)
             await state.finish()
@@ -696,6 +707,7 @@ async def get_telegramid_edit(message: types.Message, state: FSMContext):
 
         await state.finish()
         await message.answer('Malumot yangilandi', reply_markup=markup)
+
 
 @dp.message_handler(content_types='location', state=EditCompanyState.location)
 async def get_location_edit(message: types.Message, state: FSMContext):
@@ -722,9 +734,6 @@ async def get_location_edit(message: types.Message, state: FSMContext):
 
         await state.finish()
         await message.answer('Malumot yangilandi', reply_markup=markup)
-
-
-
 
 
 @dp.message_handler(commands=['edit_staff'])
@@ -789,6 +798,7 @@ async def get_change_edit(callback: types.CallbackQuery, state: FSMContext):
         text = 'Buyruq mavjud emas'
     await bot.send_message(chat_id=chatid, text=text, reply_markup=markup)
 
+
 @dp.callback_query_handler(state=EditStaffState.region)
 async def get_staffrgion_edit(callback: types.CallbackQuery, state: FSMContext):
     markup = await main_menu_button()
@@ -797,11 +807,12 @@ async def get_staffrgion_edit(callback: types.CallbackQuery, state: FSMContext):
         await state.finish()
     else:
         region_id = int(callback.data.split(':')[1])
-        await state.update_data(region_id= region_id)
+        await state.update_data(region_id=region_id)
         districts = await db.get_districts_by_region(region_id)
         markup = districts_keyboard(districts)
         await callback.message.answer("Tuman tanlang", reply_markup=markup)
         await EditStaffState.district.set()
+
 
 @dp.callback_query_handler(state=EditStaffState.district)
 async def get_staffdistrict_edit(callback: types.CallbackQuery, state: FSMContext):
@@ -815,14 +826,13 @@ async def get_staffdistrict_edit(callback: types.CallbackQuery, state: FSMContex
         telegram_id = data['telegram_id']
         district_id = int(callback.data.split(':')[1])
         async with db.pool.acquire() as conn:
-                await conn.execute("""
+            await conn.execute("""
                     UPDATE staff 
                     SET region_id=$1, district_id=$2
                     WHERE telegram_id=$3
                 """, region_id, district_id, telegram_id)
         await state.finish()
         await callback.message.answer('Malumot yangilandi', reply_markup=markup)
-
 
 
 @dp.message_handler(state=EditStaffState.name)
@@ -836,7 +846,7 @@ async def get_name_edit(message: types.Message, state: FSMContext):
         data = await state.get_data()
         telegram_id = data['telegram_id']
         async with db.pool.acquire() as conn:
-                await conn.execute("""
+            await conn.execute("""
                     UPDATE staff 
                     SET name=$1
                     WHERE telegram_id=$2
@@ -863,6 +873,7 @@ async def get_phone_edit(message: types.Message, state: FSMContext):
         await state.finish()
         await message.answer('Malumot yangilandi', reply_markup=markup)
 
+
 @dp.message_handler(state=EditStaffState.telegram_id)
 async def get_telegramid_edit(message: types.Message, state: FSMContext):
     markup = await main_menu_button()
@@ -874,7 +885,7 @@ async def get_telegramid_edit(message: types.Message, state: FSMContext):
         data = await state.get_data()
         telegram_id = data['telegram_id']
         if message.text.isdigit():
-            newtgid= int(message.text)
+            newtgid = int(message.text)
         else:
             await message.answer('Telgram id xato', reply_markup=markup)
             await state.finish()
@@ -887,6 +898,7 @@ async def get_telegramid_edit(message: types.Message, state: FSMContext):
                 """, newtgid, telegram_id)
         await state.finish()
         await message.answer('Malumot yangilandi', reply_markup=markup)
+
 
 @dp.message_handler(content_types='location', state=EditStaffState.location)
 async def get_location_edit(message: types.Message, state: FSMContext):
@@ -969,8 +981,9 @@ async def get_all_bookings(message: Message):
         if text:
             await message.answer(text)
 
+
 @dp.message_handler(commands='users')
-async def get_users(message:Message):
+async def get_users(message: Message):
     if message.from_user.id not in MANAGER_IDS:
         markup = await main_menu_button()
         return await message.answer("Siz menejer emassiz.", reply_markup=markup)
@@ -1001,6 +1014,7 @@ async def get_users(message:Message):
             if text:
                 await message.answer(text)
 
+
 @dp.message_handler(commands='add_region')
 async def adddregion(message: Message):
     await message.answer('Viloyat nomini kiriting', reply_markup=cancelbutton())
@@ -1022,9 +1036,10 @@ async def adddregion(message: Message, state: FSMContext):
 
 @dp.message_handler(commands='add_district')
 async def adddistrict(message: Message):
-    regions  = await db.get_regions()
+    regions = await db.get_regions()
     await message.answer('Viloyatni tanlang', reply_markup=regions_keyboard(regions))
     await AddDistrictState.region.set()
+
 
 @dp.callback_query_handler(state=AddDistrictState.region)
 async def getregionid(callback: CallbackQuery, state: FSMContext):
@@ -1037,6 +1052,8 @@ async def getregionid(callback: CallbackQuery, state: FSMContext):
         await state.update_data(region_id=int(region_id))
         await callback.message.answer('Tuman nomini kiriting', reply_markup=cancelbutton())
         await AddDistrictState.name.set()
+
+
 @dp.message_handler(state=AddDistrictState.name)
 async def addnamedistrict(message: Message, state: FSMContext):
     markup = await main_menu_button()
@@ -1047,9 +1064,6 @@ async def addnamedistrict(message: Message, state: FSMContext):
         name = message.text
         data = await state.get_data()
         region_id = data['region_id']
-        await add_destrict_function(region_id=region_id,name=name)
+        await add_destrict_function(region_id=region_id, name=name)
         await state.finish()
         await message.answer('Tuman saqlandi', reply_markup=markup)
-
-
-
