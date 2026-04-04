@@ -596,7 +596,7 @@ async def get_region_edit(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.answer('❌ Bekor qilindi', reply_markup=markup)
         await state.finish()
     else:
-        region_id = int(callback.data.split('_')[1])
+        region_id = int(callback.data.split(':')[1])
         await state.update_data(region_id= region_id)
         districts = await db.get_districts_by_region(region_id)
         markup =  districts_keyboard(districts)
